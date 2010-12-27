@@ -1,0 +1,32 @@
+
+ -- What is it?
+
+This is a quite simple A/V capture based on ffmpeg for Blackmagic Design
+DeckLink systems.
+
+It isn't exactly feature complete and had been used as testbed to develop
+a crude avdevice for ffmpeg and then kept around since it comes handy in many
+occasions since the avdevice has it's share of issues I don't have time nor
+will to debug given I don't own a decklink card myself.
+
+ -- How to build?
+
+In order to build it just clone/unpack this on your Sample directory from the
+DeckLink SDK and then issue "make". If you have ffmpeg and pkg-config installed
+it will build fine
+
+ -- How to use?
+
+./CaptureFFmpeg -C 1 -m 2 -I 1 -F nut -f pipe:1 | ffmpeg -y -i - <your options here>
+
+-I switch from the default (HDMI) source to Analog (both audio and video)
+
+-C select the capture device if more than one is present.
+
+-F define the container format, I suggest using nut.
+
+-f output file name, any libavformat compatible url is supported.
+
+  -- Contact
+
+You can contact me either at lu_zero@gentoo.org or luca.barbato@axant.it
