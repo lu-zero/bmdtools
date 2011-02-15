@@ -1,13 +1,17 @@
 
  -- What is it?
 
-This is a quite simple A/V capture based on ffmpeg for Blackmagic Design
+It started as a quite simple A/V capture based on ffmpeg for Blackmagic Design
 DeckLink systems.
 
-It isn't exactly feature complete and had been used as testbed to develop
-a crude avdevice for ffmpeg and then kept around since it comes handy in many
-occasions since the avdevice has it's share of issues I don't have time nor
-will to debug given I don't own a decklink card myself.
+It wasn't and isn't exactly feature complete and had been used as testbed to
+develop a crude avdevice for ffmpeg and then kept around since it comes handy
+in many occasions since the avdevice has it's share of issues I don't have
+time nor will to debug right now.
+
+It had been improved thanks to TodoStreaming support to be even more useful
+paired with a simple player that could be used as example for the output side
+as well.
 
  -- How to build?
 
@@ -17,7 +21,7 @@ it will build fine
 
  -- How to use?
 
-./CaptureFFmpeg -C 1 -m 2 -I 1 -F nut -f pipe:1 | ffmpeg -y -i - <your options here>
+./bmdcapture -C 1 -m 2 -I 1 -F nut -f pipe:1 | ffmpeg -y -i - <your options here>
 
 -I switch from the default (HDMI) source to Analog (both audio and video)
 
@@ -26,6 +30,15 @@ it will build fine
 -F define the container format, I suggest using nut.
 
 -f output file name, any libavformat compatible url is supported.
+
+
+ffmpeg -i <source> -f nut - | ./bmdplay -f pipe:0
+
+[TBD]
+
+-C select the capture device if more than one is present.
+
+-f input file name, any libavformat compatible url is supported.
 
   -- Contact
 

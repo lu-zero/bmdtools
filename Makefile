@@ -24,13 +24,20 @@
 #** DEALINGS IN THE SOFTWARE.
 #** -LICENSE-END-
 
-CC=g++
+CXX=g++
 SDK_PATH=../../include
 CFLAGS=-Wno-multichar -I $(SDK_PATH) -fno-rtti -D__STDC_CONSTANT_MACROS -g
 LDFLAGS=-lm -ldl -lpthread `pkg-config --libs libavformat`
 
-CaptureFFmpeg: CaptureFFmpeg.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
-	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+all: bmdcapture bmdplay
+
+bmdcapture: bmdcapture.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
+	$(CXX) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+
+bmdplay: bmdplay.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
+	$(CXX) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+
+
 
 clean:
-	rm -f CaptureFFmpeg
+	-rm -f bmdcapture bmdplay
