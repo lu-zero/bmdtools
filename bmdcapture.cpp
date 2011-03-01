@@ -284,23 +284,29 @@ int usage(int status)
         "    -m <mode id>:\n"
     );
 
-    while (displayModeIterator->Next(&displayMode) == S_OK)
+    if (displayModeIterator)
     {
-        char *          displayModeString = NULL;
+        // we try to print out some useful information about the chosen
+        // card, but this only works if a card has been selected successfully
 
-        result = displayMode->GetName((const char **) &displayModeString);
-        if (result == S_OK)
+        while (displayModeIterator->Next(&displayMode) == S_OK)
         {
-            BMDTimeValue frameRateDuration, frameRateScale;
-            displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-            fprintf(stderr, "        %2d:  %-20s \t %li x %li \t %g FPS\n",
-                displayModeCount, displayModeString, displayMode->GetWidth(), displayMode->GetHeight(), (double)frameRateScale / (double)frameRateDuration);
-            free(displayModeString);
-            displayModeCount++;
-        }
+            char *          displayModeString = NULL;
 
-        // Release the IDeckLinkDisplayMode object to prevent a leak
-        displayMode->Release();
+            result = displayMode->GetName((const char **) &displayModeString);
+            if (result == S_OK)
+            {
+                BMDTimeValue frameRateDuration, frameRateScale;
+                displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
+                fprintf(stderr, "        %2d:  %-20s \t %li x %li \t %g FPS\n",
+                    displayModeCount, displayModeString, displayMode->GetWidth(), displayMode->GetHeight(), (double)frameRateScale / (double)frameRateDuration);
+                free(displayModeString);
+                displayModeCount++;
+            }
+
+            // Release the IDeckLinkDisplayMode object to prevent a leak
+            displayMode->Release();
+        }
     }
 
     fprintf(stderr,
