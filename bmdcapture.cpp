@@ -549,10 +549,14 @@ bail:
     if (deckLinkIterator != NULL)
         deckLinkIterator->Release();
 
-    av_write_trailer(oc);
-    if (!(fmt->flags & AVFMT_NOFILE)) {
-        /* close the output file */
-        url_fclose(oc->pb);
+    if (oc != NULL)
+    {
+        av_write_trailer(oc);
+        if (!(fmt->flags & AVFMT_NOFILE)) {
+            /* close the output file */
+            url_fclose(oc->pb);
+        }
+
     }
 
     return exitStatus;
