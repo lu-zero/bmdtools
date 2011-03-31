@@ -86,7 +86,6 @@ static AVStream *add_audio_stream(AVFormatContext *oc, enum CodecID codec_id)
 //    c->bit_rate = 64000;
     c->sample_rate = 48000;
     c->channels = 2;
-
     // some formats want stream headers to be separate
     if(oc->oformat->flags & AVFMT_GLOBALHEADER)
         c->flags |= CODEC_FLAG_GLOBAL_HEADER;
@@ -133,7 +132,6 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum CodecID codec_id)
     displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
     c->time_base.den = frameRateScale;
     c->time_base.num = frameRateDuration;
-//    c->gop_size = 12; /* emit one intra frame every twelve frames at most */
     c->pix_fmt = PIX_FMT_UYVY422;
 
     // some formats want stream headers to be separate
@@ -195,30 +193,30 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
 {
     void *frameBytes;
     void *audioFrameBytes;
+    BMDTimeValue frameTime;
+    BMDTimeValue frameDuration;
 
-
+    frameCount++;
     // Handle Video Frame
     if(videoFrame)
     {
         if (videoFrame->GetFlags() & bmdFrameHasNoInputSource)
         {
             fprintf(stderr, "Frame received (#%lu) - No input signal detected\n", frameCount);
-        }
-        else
-        {
+            return S_OK;
+        } else {
             AVPacket pkt;
             AVCodecContext *c;
             av_init_packet(&pkt);
-	    BMDTimeValue frameTime;
-	    BMDTimeValue frameDuration;
             c = video_st->codec;
             //fprintf(stderr, "Frame received (#%lu) - Valid Frame (Size: %li bytes)\n", frameCount, videoFrame->GetRowBytes() * videoFrame->GetHeight());
             videoFrame->GetBytes(&frameBytes);
             avpicture_fill((AVPicture*)picture, (uint8_t *)frameBytes,
                            PIX_FMT_UYVY422,
                            videoFrame->GetWidth(), videoFrame->GetHeight());
-            videoFrame->GetStreamTime(&frameTime, &frameDuration, frameRateScale);
-//            pkt.pts = pkt.dts = frameTime;
+            videoFrame->GetStreamTime(&frameTime, &frameDuration,
+                                      video_st->time_base.den);
+            pkt.pts = pkt.dts = frameTime/video_st->time_base.num;
             pkt.duration = frameDuration;
             //To be made sure it still applies
             pkt.flags |= AV_PKT_FLAG_KEY;
@@ -230,7 +228,7 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
             av_interleaved_write_frame(oc, &pkt);
             //write(videoOutputFile, frameBytes, videoFrame->GetRowBytes() * videoFrame->GetHeight());
         }
-        frameCount++;
+//        frameCount++;
 
         if (g_maxFrames > 0 && frameCount >= g_maxFrames)
         {
@@ -251,8 +249,8 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
             pkt.size =  audioFrame->GetSampleFrameCount() *
                              g_audioChannels * (g_audioSampleDepth / 8);
             audioFrame->GetBytes(&audioFrameBytes);
-            audioFrame->GetPacketTime(&audio_pts, frameRateScale);
-//	    pkt.dts = pkt.pts= audio_pts;
+            audioFrame->GetPacketTime(&audio_pts, audio_st->time_base.den);
+	    pkt.dts = pkt.pts= audio_pts/audio_st->time_base.num;
 	    //fprintf(stderr,"Audio Frame size %d ts %d\n", pkt.size, pkt.pts);
             pkt.flags |= AV_PKT_FLAG_KEY;
             pkt.stream_index= audio_st->index;
