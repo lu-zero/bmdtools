@@ -39,7 +39,8 @@ extern "C" {
 }
 
 pthread_mutex_t                    sleepMutex;
-pthread_cond_t                    sleepCond;
+pthread_cond_t                     sleepCond;
+int                                memory_limit = 1024*1024*1024;
 int                                videoOutputFile = -1;
 int                                audioOutputFile = -1;
 
@@ -165,6 +166,15 @@ static int avpacket_queue_get(AVPacketQueue *q, AVPacket *pkt, int block)
     }
     pthread_mutex_unlock(&q->mutex);
     return ret;
+}
+
+static int avpacket_queue_size(AVPacketQueue *q)
+{
+    int size;
+    pthread_mutex_lock(&q->mutex);
+    size = q->size;
+    pthread_mutex_unlock(&q->mutex);
+    return size;
 }
 
 AVFrame *picture;
@@ -341,7 +351,8 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
         }
 //        frameCount++;
 
-        if (g_maxFrames > 0 && frameCount >= g_maxFrames)
+        if (g_maxFrames > 0 && frameCount >= g_maxFrames ||
+            avpacket_queue_size(&queue) > memory_limit)
         {
             pthread_cond_signal(&sleepCond);
         }
@@ -374,7 +385,6 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
                 exit(1);
             } */
             avpacket_queue_put(&queue, &pkt);
-
     }
     return S_OK;
 }
