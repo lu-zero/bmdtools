@@ -57,6 +57,115 @@ const char *                    g_audioOutputFile = NULL;
 static int                        g_maxFrames = -1;
 
 static unsigned long             frameCount = 0;
+typedef struct AVPacketQueue {
+    AVPacketList *first_pkt, *last_pkt;
+    int nb_packets;
+    int size;
+    int abort_request;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+} AVPacketQueue;
+
+
+static AVPacketQueue queue;
+
+static AVPacket flush_pkt;
+
+static void avpacket_queue_init(AVPacketQueue *q)
+{
+    memset(q, 0, sizeof(AVPacketQueue));
+    pthread_mutex_init(&q->mutex, NULL);
+    pthread_cond_init(&q->cond, NULL);
+}
+
+static void avpacket_queue_flush(AVPacketQueue *q)
+{
+    AVPacketList *pkt, *pkt1;
+
+    pthread_mutex_lock(&q->mutex);
+    for(pkt = q->first_pkt; pkt != NULL; pkt = pkt1) {
+        pkt1 = pkt->next;
+        av_free_packet(&pkt->pkt);
+        av_freep(&pkt);
+    }
+    q->last_pkt = NULL;
+    q->first_pkt = NULL;
+    q->nb_packets = 0;
+    q->size = 0;
+    pthread_mutex_unlock(&q->mutex);
+}
+
+static void avpacket_queue_end(AVPacketQueue *q)
+{
+    avpacket_queue_flush(q);
+    pthread_mutex_destroy(&q->mutex);
+    pthread_cond_destroy(&q->cond);
+}
+
+static int avpacket_queue_put(AVPacketQueue *q, AVPacket *pkt)
+{
+    AVPacketList *pkt1;
+
+    /* duplicate the packet */
+    if (pkt!=&flush_pkt && av_dup_packet(pkt) < 0)
+        return -1;
+
+    pkt1 = (AVPacketList *)av_malloc(sizeof(AVPacketList));
+    if (!pkt1)
+        return -1;
+    pkt1->pkt = *pkt;
+    pkt1->next = NULL;
+
+    pthread_mutex_lock(&q->mutex);
+
+    if (!q->last_pkt)
+
+        q->first_pkt = pkt1;
+    else
+        q->last_pkt->next = pkt1;
+    q->last_pkt = pkt1;
+    q->nb_packets++;
+    q->size += pkt1->pkt.size + sizeof(*pkt1);
+
+    pthread_cond_signal(&q->cond);
+
+    pthread_mutex_unlock(&q->mutex);
+    return 0;
+}
+
+static int avpacket_queue_get(AVPacketQueue *q, AVPacket *pkt, int block)
+{
+    AVPacketList *pkt1;
+    int ret;
+
+    pthread_mutex_lock(&q->mutex);
+
+    for(;;) {
+        pkt1 = q->first_pkt;
+        if (pkt1) {
+            if (pkt1->pkt.data == flush_pkt.data) {
+                ret = 0;
+                break;
+            }
+            q->first_pkt = pkt1->next;
+            if (!q->first_pkt)
+                q->last_pkt = NULL;
+            q->nb_packets--;
+            q->size -= pkt1->pkt.size + sizeof(*pkt1);
+            *pkt = pkt1->pkt;
+            av_free(pkt1);
+            ret = 1;
+            break;
+        } else if (!block) {
+            ret = 0;
+            break;
+        } else {
+            pthread_cond_wait(&q->cond, &q->mutex);
+        }
+    }
+    pthread_mutex_unlock(&q->mutex);
+    return ret;
+}
 
 AVFrame *picture;
 AVOutputFormat *fmt = NULL;
@@ -225,7 +334,9 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
             pkt.size= videoFrame->GetRowBytes() * videoFrame->GetHeight();
 	    //fprintf(stderr,"Video Frame size %d ts %d\n", pkt.size, pkt.pts);
 	    c->frame_number++;
-            av_interleaved_write_frame(oc, &pkt);
+//            av_interleaved_write_frame(oc, &pkt);
+            avpacket_queue_put(&queue, &pkt);
+
             //write(videoOutputFile, frameBytes, videoFrame->GetRowBytes() * videoFrame->GetHeight());
         }
 //        frameCount++;
@@ -258,10 +369,12 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
 //            pkt.size= avcodec_encode_audio(c, audio_outbuf, audio_outbuf_size, samples);
 	    c->frame_number++;
             //write(audioOutputFile, audioFrameBytes, audioFrame->GetSampleFrameCount() * g_audioChannels * (g_audioSampleDepth / 8));
-            if (av_interleaved_write_frame(oc, &pkt) != 0) {
+/*            if (av_interleaved_write_frame(oc, &pkt) != 0) {
                 fprintf(stderr, "Error while writing audio frame\n");
                 exit(1);
-            }
+            } */
+            avpacket_queue_put(&queue, &pkt);
+
     }
     return S_OK;
 }
@@ -327,6 +440,21 @@ int usage(int status)
 
     exit(status);
 }
+
+static void *push_packet(void *ctx)
+{
+    AVFormatContext *s = (AVFormatContext *)ctx;
+    AVPacket pkt;
+    int ret;
+
+    while (avpacket_queue_get(&queue, &pkt, 1)) {
+        av_interleaved_write_frame(s, &pkt);
+        av_free_packet(&pkt);
+    }
+
+    return NULL;
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -518,6 +646,12 @@ int main(int argc, char *argv[])
     }
     // All Okay.
     exitStatus = 0;
+
+    avpacket_queue_init(&queue);
+    pthread_t th;
+
+    if (pthread_create(&th, NULL, push_packet, oc))
+        goto bail;
 
     // Block main thread until signal occurs
     pthread_mutex_lock(&sleepMutex);
