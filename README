@@ -32,7 +32,7 @@ it will build fine
 -f output file name, any libavformat compatible url is supported.
 
 
-ffmpeg -i <source> -f nut - | ./bmdplay -f pipe:0
+ffmpeg -vsync 1 -i <source> -vcodec rawvideo -pix_fmt uyvy422 -acodec pcm_s16le -ar 48000 -f nut - | ./bmdplay -f pipe:0
 
 [TBD]
 
