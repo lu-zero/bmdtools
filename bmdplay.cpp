@@ -58,7 +58,7 @@ AVStream *video_st = NULL;
 DECLARE_ALIGNED(16,uint8_t,audio_buffer)[(AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2];
 int data_size = sizeof(audio_buffer);
 int offset = 0;
-
+int buffer = 2;
 
 const unsigned long        kAudioWaterlevel = 48000/4; /* small */
 
@@ -187,8 +187,7 @@ void *fill_queues(void *unused) {
 	    }
 /*	    while (videoqueue.nb_packets>10)
 		usleep(30); */
-	    fprintf(stderr, "V %d A %d\n", videoqueue.nb_packets,
-					   audioqueue.nb_packets);
+	    //fprintf(stderr, "V %d A %d\n", videoqueue.nb_packets, audioqueue.nb_packets); //----->
     }
     return NULL;
 }
@@ -198,42 +197,125 @@ void    sigfunc (int signum)
     pthread_cond_signal(&sleepCond);
 }
 
+void	print_output_modes (IDeckLink* deckLink)
+{
+	IDeckLinkOutput*					deckLinkOutput = NULL;
+	IDeckLinkDisplayModeIterator*		displayModeIterator = NULL;
+	IDeckLinkDisplayMode*				displayMode = NULL;
+	HRESULT								result;
+        int displayModeCount = 0;
+
+	// Query the DeckLink for its configuration interface
+	result = deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&deckLinkOutput);
+	if (result != S_OK)
+	{
+		fprintf(stderr, "Could not obtain the IDeckLinkOutput interface - result = %08x\n", result);
+		goto bail;
+	}
+
+	// Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on output
+	result = deckLinkOutput->GetDisplayModeIterator(&displayModeIterator);
+	if (result != S_OK)
+	{
+		fprintf(stderr, "Could not obtain the video output display mode iterator - result = %08x\n", result);
+		goto bail;
+	}
+
+	// List all supported output display modes
+	printf("Supported video output display modes and pixel formats:\n");
+	while (displayModeIterator->Next(&displayMode) == S_OK)
+	{
+		char *			displayModeString = NULL;
+
+		result = displayMode->GetName((const char **) &displayModeString);
+		if (result == S_OK)
+		{
+			char					modeName[64];
+			int						modeWidth;
+			int						modeHeight;
+			BMDTimeValue			frameRateDuration;
+			BMDTimeScale			frameRateScale;
+			int						pixelFormatIndex = 0; // index into the gKnownPixelFormats / gKnownFormatNames arrays
+			BMDDisplayModeSupport	displayModeSupport;
+			// Obtain the display mode's properties
+			modeWidth = displayMode->GetWidth();
+			modeHeight = displayMode->GetHeight();
+			displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
+			printf("        %2d:   %-20s \t %d x %d \t %7g FPS\n", displayModeCount++, displayModeString, modeWidth, modeHeight, (double)frameRateScale / (double)frameRateDuration);
+
+			free(displayModeString);
+		}
+		// Release the IDeckLinkDisplayMode object to prevent a leak
+		displayMode->Release();
+	}
+//	printf("\n");
+bail:
+	// Ensure that the interfaces we obtained are released to prevent a memory leak
+	if (displayModeIterator != NULL)
+		displayModeIterator->Release();
+	if (deckLinkOutput != NULL)
+		deckLinkOutput->Release();
+}
+
 int usage(int status)
 {
     HRESULT result;
-    int displayModeCount = 0;
+    IDeckLinkIterator* deckLinkIterator;
+    IDeckLink*      deckLink;
+    int       numDevices = 0;
 
     fprintf(stderr,
-        "Usage: Capture -m <mode id> [OPTIONS]\n"
+        "Usage: bmdplay -m <mode id> [OPTIONS]\n"
         "\n"
         "    -m <mode id>:\n"
     );
-/*
-    while (displayModeIterator->Next(&displayMode) == S_OK)
-    {
-        char *          displayModeString = NULL;
 
-        result = displayMode->GetName((const char **) &displayModeString);
-        if (result == S_OK)
-        {
-            BMDTimeValue frameRateDuration, frameRateScale;
-            displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-            fprintf(stderr, "        %2d:  %-20s \t %li x %li \t %g FPS\n",
-                displayModeCount, displayModeString, displayMode->GetWidth(), displayMode->GetHeight(), (double)frameRateScale / (double)frameRateDuration);
-            free(displayModeString);
-            displayModeCount++;
-        }
+	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
+	deckLinkIterator = CreateDeckLinkIteratorInstance();
+	if (deckLinkIterator == NULL)
+	{
+		fprintf(stderr, "A DeckLink iterator could not be created.  The DeckLink drivers may not be installed.\n");
+		return 1;
+	}
 
-        // Release the IDeckLinkDisplayMode object to prevent a leak
-        displayMode->Release();
-    }
-*/
+	// Enumerate all cards in this system
+	while (deckLinkIterator->Next(&deckLink) == S_OK)
+	{
+		char *		deviceNameString = NULL;
+
+		// Increment the total number of DeckLink cards found
+		numDevices++;
+		if (numDevices > 1)
+			printf("\n\n");
+
+		// *** Print the model name of the DeckLink card
+		result = deckLink->GetModelName((const char **) &deviceNameString);
+		if (result == S_OK)
+		{
+			printf("=============== %s (-C %d )===============\n\n", deviceNameString, numDevices-1);
+			free(deviceNameString);
+		}
+
+		print_output_modes(deckLink);
+		// Release the IDeckLink instance when we've finished with it to prevent leaks
+		deckLink->Release();
+	}
+	deckLinkIterator->Release();
+
+	// If no DeckLink cards were found in the system, inform the user
+	if (numDevices == 0)
+		printf("No Blackmagic Design devices were found.\n");
+	printf("\n");
+
     fprintf(stderr,
-        "    -I <input>           Input connection:\n"
+        "    -f <filename>        Filename raw video will be written to\n"
+        "    -C <num>             Card number to be used\n"
+        "    -b <num>             Seconds of pre-buffering before playback (default = 2 sec)\n"
+        "    -O <output>          Output connection:\n"
         "                         1: Composite video + analog audio\n"
         "                         2: Components video + analog audio\n"
         "                         3: HDMI video + audio\n"
-        "                         4: SDI video + audio\n");
+        "                         4: SDI video + audio\n\n");
 
     return status;
 }
@@ -248,7 +330,7 @@ int main(int argc, char *argv[])
     int         camera = 0;
     char *filename=NULL;
 
-    while ((ch = getopt(argc, argv, "?hs:f:a:m:n:F:C:I:")) != -1)
+    while ((ch = getopt(argc, argv, "?hs:f:a:m:n:F:C:O:b:")) != -1)
     {
         switch (ch)
         {
@@ -258,11 +340,14 @@ int main(int argc, char *argv[])
             case 'm':
                 videomode = atoi(optarg);
                 break;
-            case 'I':
+            case 'O':
                 connection = atoi(optarg);
                 break;
             case 'C':
                 camera = atoi(optarg);
+                break;
+            case 'b':
+                buffer = atoi(optarg);
                 break;
             case '?':
             case 'h':
@@ -385,8 +470,8 @@ bool    TestPattern::Init(int videomode, int connection, int camera)
     pthread_t th;
     pthread_create(&th, NULL, fill_queues, NULL);
 
-    sleep(3);// You can add more than 1 second of buffer
-    // Start.
+    sleep(buffer);// You can add the seconds you need for pre-buffering before start playing
+    // Start playing
     StartRunning(videomode);
 
     pthread_mutex_lock(&sleepMutex);
@@ -440,7 +525,7 @@ IDeckLinkDisplayMode*    TestPattern::GetDisplayModeByIndex(int selectedIndex)
         {
             if (index == selectedIndex)
             {
-                printf("Selected mode: %s\n", modeName);
+                printf("Selected mode: %s\n\n\n", modeName);
                 selectedMode = deckLinkDisplayMode;
                 goto bail;
             }
@@ -620,11 +705,10 @@ void    TestPattern::WriteNextAudioSamples ()
                                                data_size/4,
                                                pkt.pts, 48000,
                                                &samplesWritten) != S_OK)
-        fprintf(stderr, "error writing audio sample");
+        fprintf(stderr, "error writing audio sample\n");
 //    offset = (samplesWritten + offset) % data_size;
 
-    fprintf(stderr, "Buffer %d, written %d, available %d offset %d\n",
-            bufferedSamples, samplesWritten, data_size-offset, offset);
+    //fprintf(stderr, "Buffer %d, written %d, available %d offset %d\n", bufferedSamples, samplesWritten, data_size-offset, offset);//--------->
 }
 
 /************************* DeckLink API Delegate Methods *****************************/

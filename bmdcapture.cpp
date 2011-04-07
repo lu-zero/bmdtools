@@ -40,7 +40,7 @@ extern "C" {
 
 pthread_mutex_t                    sleepMutex;
 pthread_cond_t                     sleepCond;
-int                                memory_limit = 1024*1024*1024;
+int                                memory_limit = 1024*1024*1024; // 1GByte(>50 sec)
 int                                videoOutputFile = -1;
 int                                audioOutputFile = -1;
 
@@ -58,6 +58,8 @@ const char *                    g_audioOutputFile = NULL;
 static int                        g_maxFrames = -1;
 
 static unsigned long             frameCount = 0;
+static unsigned int             dropped = 0, totaldropped = 0;
+
 typedef struct AVPacketQueue {
     AVPacketList *first_pkt, *last_pkt;
     int nb_packets;
@@ -321,9 +323,18 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
     {
         if (videoFrame->GetFlags() & bmdFrameHasNoInputSource)
         {
-            fprintf(stderr, "Frame received (#%lu) - No input signal detected\n", frameCount);
+            fprintf(stderr, "Frame received (#%lu) - No input signal detected - Frames dropped %u - Total dropped %u\n", frameCount, ++dropped, ++totaldropped);
+
+            if(dropped > 4 || totaldropped > 6 || frameCount < 12){
+                fprintf(stderr, "Frames dropped: %u - Total dropped: %u\n", dropped, totaldropped);
+                exit(1);
+            }
             return S_OK;
         } else {
+            if (dropped){
+                dropped = 0;
+                fprintf(stderr, "Frames dropped reseted to %u - Total dropped: %u\n", dropped, totaldropped);
+            }
             AVPacket pkt;
             AVCodecContext *c;
             av_init_packet(&pkt);
@@ -394,17 +405,118 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFormatChanged(BMDVideoInputFormatChan
     return S_OK;
 }
 
+void	print_output_modes (IDeckLink* deckLink)
+{
+	IDeckLinkOutput*					deckLinkOutput = NULL;
+	IDeckLinkDisplayModeIterator*		displayModeIterator = NULL;
+	IDeckLinkDisplayMode*				displayMode = NULL;
+	HRESULT								result;
+        int displayModeCount = 0;
+
+	// Query the DeckLink for its configuration interface
+	result = deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&deckLinkOutput);
+	if (result != S_OK)
+	{
+		fprintf(stderr, "Could not obtain the IDeckLinkOutput interface - result = %08x\n", result);
+		goto bail;
+	}
+
+	// Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on output
+	result = deckLinkOutput->GetDisplayModeIterator(&displayModeIterator);
+	if (result != S_OK)
+	{
+		fprintf(stderr, "Could not obtain the video output display mode iterator - result = %08x\n", result);
+		goto bail;
+	}
+
+	// List all supported output display modes
+	printf("Supported video output display modes and pixel formats:\n");
+	while (displayModeIterator->Next(&displayMode) == S_OK)
+	{
+		char *			displayModeString = NULL;
+
+		result = displayMode->GetName((const char **) &displayModeString);
+		if (result == S_OK)
+		{
+			char					modeName[64];
+			int						modeWidth;
+			int						modeHeight;
+			BMDTimeValue			frameRateDuration;
+			BMDTimeScale			frameRateScale;
+			int						pixelFormatIndex = 0; // index into the gKnownPixelFormats / gKnownFormatNames arrays
+			BMDDisplayModeSupport	displayModeSupport;
+			// Obtain the display mode's properties
+			modeWidth = displayMode->GetWidth();
+			modeHeight = displayMode->GetHeight();
+			displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
+			printf("        %2d:   %-20s \t %d x %d \t %7g FPS\n", displayModeCount++, displayModeString, modeWidth, modeHeight, (double)frameRateScale / (double)frameRateDuration);
+
+			free(displayModeString);
+		}
+		// Release the IDeckLinkDisplayMode object to prevent a leak
+		displayMode->Release();
+	}
+//	printf("\n");
+bail:
+	// Ensure that the interfaces we obtained are released to prevent a memory leak
+	if (displayModeIterator != NULL)
+		displayModeIterator->Release();
+	if (deckLinkOutput != NULL)
+		deckLinkOutput->Release();
+}
+
 int usage(int status)
 {
     HRESULT result;
-    int displayModeCount = 0;
+    IDeckLinkIterator* deckLinkIterator;
+    IDeckLink*      deckLink;
+    int       numDevices = 0;
+//    int displayModeCount = 0;
 
     fprintf(stderr,
-        "Usage: Capture -m <mode id> [OPTIONS]\n"
+        "Usage: bmdcapture -m <mode id> [OPTIONS]\n"
         "\n"
         "    -m <mode id>:\n"
     );
 
+	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
+	deckLinkIterator = CreateDeckLinkIteratorInstance();
+	if (deckLinkIterator == NULL)
+	{
+		fprintf(stderr, "A DeckLink iterator could not be created.  The DeckLink drivers may not be installed.\n");
+		return 1;
+	}
+
+	// Enumerate all cards in this system
+	while (deckLinkIterator->Next(&deckLink) == S_OK)
+	{
+		char *		deviceNameString = NULL;
+
+		// Increment the total number of DeckLink cards found
+		numDevices++;
+		if (numDevices > 1)
+			printf("\n\n");
+
+		// *** Print the model name of the DeckLink card
+		result = deckLink->GetModelName((const char **) &deviceNameString);
+		if (result == S_OK)
+		{
+			printf("=============== %s (-C %d )===============\n\n", deviceNameString, numDevices-1);
+			free(deviceNameString);
+		}
+
+		print_output_modes(deckLink);
+		// Release the IDeckLink instance when we've finished with it to prevent leaks
+		deckLink->Release();
+	}
+	deckLinkIterator->Release();
+
+	// If no DeckLink cards were found in the system, inform the user
+	if (numDevices == 0)
+		printf("No Blackmagic Design devices were found.\n");
+	printf("\n");
+
+/*
     if (displayModeIterator)
     {
         // we try to print out some useful information about the chosen
@@ -429,23 +541,23 @@ int usage(int status)
             displayMode->Release();
         }
     }
-
+*/
     fprintf(stderr,
         "    -f <filename>        Filename raw video will be written to\n"
         "    -F <format>          Define the file format to be used\n"
         "    -c <channels>        Audio Channels (2, 8 or 16 - default is 2)\n"
         "    -s <depth>           Audio Sample Depth (16 or 32 - default is 16)\n"
         "    -n <frames>          Number of frames to capture (default is unlimited)\n"
+        "    -C <num>             number of card to be used\n"
         "    -I <input>           Input connection:\n"
         "                         1: Composite video + analog audio\n"
         "                         2: Components video + analog audio\n"
         "                         3: HDMI video + audio\n"
         "                         4: SDI video + audio\n"
         "\n"
-        "Capture video and/or audio to a file. Raw video and/or audio can be viewed with mplayer eg:\n"
+        "Capture video and audio to a file. Raw video and audio can be sent to a pipe to ffmpeg or vlc eg:\n"
         "\n"
-        "    Capture -m2 -n 50 -f video.raw -a audio.raw\n"
-        "    mplayer video.raw -demuxer rawvideo -rawvideo pal:uyvy -audiofile audio.raw -audio-demuxer 20 -rawaudio rate=48000\n"
+        "    bmdcapture -m 2 -I 1 -F nut -f pipe:1\n\n\n"
     );
 
     exit(status);
