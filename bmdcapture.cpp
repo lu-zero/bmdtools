@@ -322,19 +322,9 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
     if(videoFrame)
     {
         if (videoFrame->GetFlags() & bmdFrameHasNoInputSource)
-        {
             fprintf(stderr, "Frame received (#%lu) - No input signal detected - Frames dropped %u - Total dropped %u\n", frameCount, ++dropped, ++totaldropped);
-
-            if(dropped > 4 || totaldropped > 6 || frameCount < 12){
-                fprintf(stderr, "Frames dropped: %u - Total dropped: %u\n", dropped, totaldropped);
-                exit(1);
-            }
-            return S_OK;
-        } else {
-            if (dropped){
-                dropped = 0;
-                fprintf(stderr, "Frames dropped reseted to %u - Total dropped: %u\n", dropped, totaldropped);
-            }
+        }
+        {
             AVPacket pkt;
             AVCodecContext *c;
             av_init_packet(&pkt);
