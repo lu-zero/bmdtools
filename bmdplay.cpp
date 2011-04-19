@@ -178,10 +178,10 @@ void *fill_queues(void *unused) {
 	    if (err) return NULL;
 	    st = ic->streams[pkt.stream_index];
 	    switch (st->codec->codec_type) {
-	    case CODEC_TYPE_VIDEO:
+	    case AVMEDIA_TYPE_VIDEO:
 		packet_queue_put(&videoqueue, &pkt);
 	    break;
-	    case CODEC_TYPE_AUDIO:
+	    case AVMEDIA_TYPE_AUDIO:
 		packet_queue_put(&audioqueue, &pkt);
 	    break;
 	    }
@@ -369,9 +369,9 @@ int main(int argc, char *argv[])
         AVCodec *codec = avcodec_find_decoder(avctx->codec_id);
         if (!codec || avcodec_open(avctx, codec) < 0)
             fprintf(stderr, "cannot find codecs for %s\n",
-                (avctx->codec_type == CODEC_TYPE_AUDIO)? "Audio" : "Video");
-        if (avctx->codec_type == CODEC_TYPE_AUDIO) audio_st = st;
-        if (avctx->codec_type == CODEC_TYPE_VIDEO) video_st = st;
+                (avctx->codec_type == AVMEDIA_TYPE_AUDIO)? "Audio" : "Video");
+        if (avctx->codec_type == AVMEDIA_TYPE_AUDIO) audio_st = st;
+        if (avctx->codec_type == AVMEDIA_TYPE_VIDEO) video_st = st;
     }
 
     dump_format(ic, 0, filename, 0);
@@ -561,7 +561,7 @@ void    TestPattern::StartRunning (int videomode)
 
     // Set the audio output mode
     if (m_deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz, m_audioSampleDepth, m_audioChannelCount, bmdAudioOutputStreamTimestamped) != S_OK)
-/*    bmdAudioOutputStreamTimestamped 
+/*    bmdAudioOutputStreamTimestamped
     bmdAudioOutputStreamContinuous */
     {
         fprintf(stderr, "Failed to enable audio output\n");
