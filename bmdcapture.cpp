@@ -727,7 +727,7 @@ int main(int argc, char *argv[])
     av_set_parameters(oc, NULL);
 
     if (!(fmt->flags & AVFMT_NOFILE)) {
-        if (url_fopen(&oc->pb, oc->filename, URL_WRONLY) < 0) {
+        if (avio_open(&oc->pb, oc->filename, AVIO_FLAG_WRITE) < 0) {
             fprintf(stderr, "Could not open '%s'\n", oc->filename);
             exit(1);
         }
@@ -800,7 +800,7 @@ bail:
         av_write_trailer(oc);
         if (!(fmt->flags & AVFMT_NOFILE)) {
             /* close the output file */
-            url_fclose(oc->pb);
+            avio_close(oc->pb);
         }
 
     }
