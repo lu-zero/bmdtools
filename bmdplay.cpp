@@ -374,7 +374,7 @@ int main(int argc, char *argv[])
         if (avctx->codec_type == AVMEDIA_TYPE_VIDEO) video_st = st;
     }
 
-    dump_format(ic, 0, filename, 0);
+    av_dump_format(ic, 0, filename, 0);
 
     signal(SIGINT, sigfunc);
     pthread_mutex_init(&sleepMutex, NULL);
