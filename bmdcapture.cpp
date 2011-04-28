@@ -323,7 +323,7 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
     {
         if (videoFrame->GetFlags() & bmdFrameHasNoInputSource)
             fprintf(stderr, "Frame received (#%lu) - No input signal detected - Frames dropped %u - Total dropped %u\n", frameCount, ++dropped, ++totaldropped);
-        }
+
         {
             AVPacket pkt;
             AVCodecContext *c;
