@@ -29,7 +29,7 @@ SDK_PATH=../../include
 CFLAGS=-Wno-multichar -I $(SDK_PATH) -fno-rtti -D__STDC_CONSTANT_MACROS -g
 LDFLAGS=-lm -ldl -lpthread `pkg-config --libs libavformat`
 
-all: bmdcapture bmdplay
+all: bmdcapture bmdplay bmdgenlock
 
 bmdcapture: bmdcapture.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) -o $@ $^ $(CFLAGS) $(LDFLAGS)
@@ -37,6 +37,8 @@ bmdcapture: bmdcapture.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
 bmdplay: bmdplay.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
+bmdgenlock: genlock.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
+	$(CXX) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
 
 clean:
