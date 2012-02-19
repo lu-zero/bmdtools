@@ -192,7 +192,7 @@ static AVStream *add_audio_stream(AVFormatContext *oc, enum CodecID codec_id)
     AVCodec *codec;
     AVStream *st;
 
-    st = av_new_stream(oc, 1);
+    st = avformat_new_stream(oc, NULL);
     if (!st) {
         fprintf(stderr, "Could not alloc stream\n");
         exit(1);
@@ -217,7 +217,7 @@ static AVStream *add_audio_stream(AVFormatContext *oc, enum CodecID codec_id)
         exit(1);
     }
 
-    if (avcodec_open(c, codec) < 0) {
+    if (avcodec_open2(c, codec, NULL) < 0) {
         fprintf(stderr, "could not open codec\n");
         exit(1);
     }
@@ -231,7 +231,7 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum CodecID codec_id)
     AVCodec *codec;
     AVStream *st;
 
-    st = av_new_stream(oc, 0);
+    st = avformat_new_stream(oc, NULL);
     if (!st) {
         fprintf(stderr, "Could not alloc stream\n");
         exit(1);
@@ -267,7 +267,7 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum CodecID codec_id)
     }
 
     /* open the codec */
-    if (avcodec_open(c, codec) < 0) {
+    if (avcodec_open2(c, codec, NULL) < 0) {
         fprintf(stderr, "could not open codec\n");
         exit(1);
     }
@@ -724,8 +724,6 @@ int main(int argc, char *argv[])
     video_st = add_video_stream(oc, fmt->video_codec);
     audio_st = add_audio_stream(oc, fmt->audio_codec);
 
-    av_set_parameters(oc, NULL);
-
     if (!(fmt->flags & AVFMT_NOFILE)) {
         if (avio_open(&oc->pb, oc->filename, AVIO_FLAG_WRITE) < 0) {
             fprintf(stderr, "Could not open '%s'\n", oc->filename);
@@ -751,7 +749,7 @@ int main(int argc, char *argv[])
     {
         goto bail;
     }
-    av_write_header(oc);
+    avformat_write_header(oc, NULL);
 
     result = deckLinkInput->StartStreams();
     if(result != S_OK)
