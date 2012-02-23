@@ -22,7 +22,7 @@ will not build.
 
  -- How to use?
 
-./bmdcapture -C 1 -m 2 -I 1 -F nut -f pipe:1 | ffmpeg -y -i - <your options here>
+./bmdcapture -C 1 -m 2 -I 1 -F nut -f pipe:1 | avconv -y -i - <your options here>
 
 -I switch from the default (HDMI) source to Analog (both audio and video)
 
@@ -33,7 +33,7 @@ will not build.
 -f output file name, any libavformat compatible url is supported.
 
 
-ffmpeg -vsync 1 -i <source> -vcodec rawvideo -pix_fmt uyvy422 -acodec pcm_s16le -ar 48000 -f nut - | ./bmdplay -f pipe:0
+avconv -vsync 1 -i <source> -c:v rawvideo -pix_fmt uyvy422 -c:a pcm_s16le -ar 48000 -f nut - | ./bmdplay -f pipe:0
 
 [TBD]
 
