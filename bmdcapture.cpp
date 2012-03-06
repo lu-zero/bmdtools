@@ -584,9 +584,9 @@ int usage(int status)
         "                         2: Component\n"
         "                         3: HDMI\n"
         "                         4: SDI\n"
-        "Capture video and audio to a file. Raw video and audio can be sent to a pipe to ffmpeg or vlc eg:\n"
+        "Capture video and audio to a file. Raw video and audio can be sent to a pipe to avconv or vlc e.g.:\n"
         "\n"
-        "    bmdcapture -m 2 -I 1 -F nut -f pipe:1\n\n\n"
+        "    bmdcapture -m 2 -A 1 -V 1 -F nut -f pipe:1\n\n\n"
     );
 
     exit(status);
