@@ -690,8 +690,18 @@ int main(int argc, char *argv[])
         goto bail;
     }
 
-    if (!fmt)
-    fmt = av_guess_format(NULL, g_videoOutputFile, NULL);
+    if (!g_videoOutputFile) {
+        fprintf(stderr, "Missing argument: Please specify output path using -f\n");
+        goto bail;
+    }
+
+    if (!fmt) {
+        fmt = av_guess_format(NULL, g_videoOutputFile, NULL);
+        if (!fmt) {
+          fprintf(stderr, "Unable to guess output format, please specify explicitly using -F\n");
+          goto bail;
+        }
+    }
 
 
     if (g_videoModeIndex < 0)
