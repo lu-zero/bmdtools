@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include "compat.h"
 #include "DeckLinkAPI.h"
 #include "Capture.h"
 extern "C" {
@@ -660,25 +661,17 @@ int main(int argc, char *argv[])
     }
     //XXX make it generic
     if (connection == 1) { // video compuesto + audio analogico
-    deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection,
-                                  bmdVideoConnectionComposite);
-    deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
-				  bmdAudioConnectionAnalog);
-    }else if (connection == 2) { // video componentes + audio analogico
-    deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection,
-                                  bmdVideoConnectionComponent);
-    deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
-                                  bmdAudioConnectionAnalog);
-    }else if (connection == 3) { // HDMI video + audio
-    deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection,
-                                  bmdVideoConnectionHDMI);
-    deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
-                                  bmdAudioConnectionEmbedded);
-    }else if (connection == 4) { // SDI video + audio
-    deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection,
-                                  bmdVideoConnectionSDI);
-    deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
-                                  bmdAudioConnectionEmbedded);
+        DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionComposite);
+        DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionAnalog);
+    } else if (connection == 2) { // video componentes + audio analogico
+        DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionComponent);
+        DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionAnalog);
+    } else if (connection == 3) { // HDMI video + audio
+        DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionHDMI);
+        DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionEmbedded);
+    } else if (connection == 4) { // SDI video + audio
+        DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionSDI);
+        DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionEmbedded);
     }
     delegate = new DeckLinkCaptureDelegate();
     deckLinkInput->SetCallback(delegate);
