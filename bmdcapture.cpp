@@ -58,6 +58,7 @@ static int                        g_audioSampleDepth = 16;
 const char                       *g_videoOutputFile = NULL;
 const char                       *g_audioOutputFile = NULL;
 static int                        g_maxFrames = -1;
+bool                              g_verbose = false;
 
 static unsigned long              frameCount = 0;
 static unsigned int               dropped = 0, totaldropped = 0;
@@ -349,7 +350,11 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
             AVCodecContext *c;
             av_init_packet(&pkt);
             c = video_st->codec;
-            //fprintf(stderr, "Frame received (#%lu) - Valid Frame (Size: %li bytes)\n", frameCount, videoFrame->GetRowBytes() * videoFrame->GetHeight());
+            if (g_verbose && frameCount % 25 == 0)
+            {
+                unsigned long long qsize = avpacket_queue_size(&queue);
+                fprintf(stderr, "Frame received (#%lu) - Valid (%liB) - QSize %f\n", frameCount, videoFrame->GetRowBytes() * videoFrame->GetHeight(), (double)qsize/1024/1024);
+            }
             videoFrame->GetBytes(&frameBytes);
             avpicture_fill((AVPicture*)picture, (uint8_t *)frameBytes,
                            PIX_FMT_UYVY422,
@@ -561,6 +566,7 @@ int usage(int status)
     }
 */
     fprintf(stderr,
+        "    -v                   Be verbose (report each 25 frames)\n"
         "    -f <filename>        Filename raw video will be written to\n"
         "    -F <format>          Define the file format to be used\n"
         "    -c <channels>        Audio Channels (2, 8 or 16 - default is 2)\n"
@@ -622,10 +628,13 @@ int main(int argc, char *argv[])
     }
 
     // Parse command line options
-    while ((ch = getopt(argc, argv, "?hc:s:f:a:m:n:F:C:A:V:")) != -1)
+    while ((ch = getopt(argc, argv, "?hvc:s:f:a:m:n:F:C:A:V:")) != -1)
     {
         switch (ch)
         {
+            case 'v':
+                g_verbose = true;
+                break;
             case 'm':
                 g_videoModeIndex = atoi(optarg);
                 break;
