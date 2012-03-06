@@ -1,6 +1,7 @@
 /* -LICENSE-START-
 ** Copyright (c) 2009 Blackmagic Design
 ** Copyright (c) 2011 Luca Barbato
+**    with additions/fixes from Christian Hoffmann, 2012
 **
 ** Permission is hereby granted, free of charge, to any person or organization
 ** obtaining a copy of the software and accompanying documentation covered by
