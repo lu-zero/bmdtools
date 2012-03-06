@@ -683,7 +683,9 @@ int main(int argc, char *argv[])
     }
 
     if (deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput) != S_OK)
+    {
         goto bail;
+    }
 
     result = deckLink->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration);
     if (result != S_OK)
