@@ -567,12 +567,14 @@ int usage(int status)
         "    -s <depth>           Audio Sample Depth (16 or 32 - default is 16)\n"
         "    -n <frames>          Number of frames to capture (default is unlimited)\n"
         "    -C <num>             number of card to be used\n"
-        "    -I <input>           Input connection:\n"
-        "                         1: Composite video + analog audio\n"
-        "                         2: Components video + analog audio\n"
-        "                         3: HDMI video + audio\n"
-        "                         4: SDI video + audio\n"
-        "\n"
+        "    -A <audio-in>        Audio input:\n"
+        "                         1: Analog (RCA)\n"
+        "                         2: Embedded audio (HDMI/SDI)\n"
+        "    -V <video-in>        Video input:\n"
+        "                         1: Composite\n"
+        "                         2: Component\n"
+        "                         3: HDMI\n"
+        "                         4: SDI\n"
         "Capture video and audio to a file. Raw video and audio can be sent to a pipe to ffmpeg or vlc eg:\n"
         "\n"
         "    bmdcapture -m 2 -I 1 -F nut -f pipe:1\n\n\n"
@@ -605,7 +607,7 @@ int main(int argc, char *argv[])
     BMDDisplayMode                 selectedDisplayMode = bmdModeNTSC;
     int                            displayModeCount = 0;
     int                            exitStatus = 1;
-    int                            connection = 0, camera = 0, i=0;
+    int                            aconnection = 0, vconnection = 0, camera = 0, i=0;
     int                            ch;
     HRESULT                        result;
 
@@ -618,8 +620,9 @@ int main(int argc, char *argv[])
         fprintf(stderr, "This application requires the DeckLink drivers installed.\n");
         goto bail;
     }
+
     // Parse command line options
-    while ((ch = getopt(argc, argv, "?hc:s:f:a:m:n:F:C:I:")) != -1)
+    while ((ch = getopt(argc, argv, "?hc:s:f:a:m:n:F:C:A:V:")) != -1)
     {
         switch (ch)
         {
@@ -653,8 +656,11 @@ int main(int argc, char *argv[])
             case 'F':
                 fmt = av_guess_format(optarg, NULL, NULL);
                 break;
-            case 'I':
-                connection = atoi(optarg);
+            case 'A':
+                aconnection = atoi(optarg);
+                break;
+            case 'V':
+                vconnection = atoi(optarg);
                 break;
             case 'C':
                 camera = atoi(optarg);
@@ -685,20 +691,47 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Could not obtain the IDeckLinkConfiguration interface - result = %08x\n", result);
         goto bail;
     }
-    //XXX make it generic
-    if (connection == 1) { // video compuesto + audio analogico
-        DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionComposite);
-        DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionAnalog);
-    } else if (connection == 2) { // video componentes + audio analogico
-        DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionComponent);
-        DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionAnalog);
-    } else if (connection == 3) { // HDMI video + audio
-        DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionHDMI);
-        DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionEmbedded);
-    } else if (connection == 4) { // SDI video + audio
-        DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionSDI);
-        DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionEmbedded);
+
+    result = S_OK;
+    switch (aconnection) {
+        case 1:
+            result = DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionAnalog);
+            break;
+        case 2:
+            result = DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionEmbedded);
+            break;
+        default:
+            // do not change it
+            break;
     }
+    if (result != S_OK) {
+        fprintf(stderr, "Failed to set audio input - result = %08x\n", result);
+        goto bail;
+    }
+
+    result = S_OK;
+    switch (vconnection) {
+        case 1:
+            result = DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionComposite);
+            break;
+        case 2:
+            result = DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionComponent);
+            break;
+        case 3:
+            result = DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionHDMI);
+            break;
+        case 4:
+            result = DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionSDI);
+            break;
+        default:
+            // do not change it
+            break;
+    }
+    if (result != S_OK) {
+        fprintf(stderr, "Failed to set video input - result %08x\n", result);
+        goto bail;
+     }
+
     delegate = new DeckLinkCaptureDelegate();
     deckLinkInput->SetCallback(delegate);
 
