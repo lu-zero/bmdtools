@@ -42,7 +42,7 @@ extern "C" {
 
 pthread_mutex_t                    sleepMutex;
 pthread_cond_t                     sleepCond;
-int                                memory_limit = 1024*1024*1024; // 1GByte(>50 sec)
+unsigned long long                 memory_limit = 1024*1024*1024; // 1GByte(>50 sec)
 int                                videoOutputFile = -1;
 int                                audioOutputFile = -1;
 
@@ -65,7 +65,7 @@ static unsigned int               dropped = 0, totaldropped = 0;
 typedef struct AVPacketQueue {
     AVPacketList *first_pkt, *last_pkt;
     int nb_packets;
-    int size;
+    unsigned long long size;
     int abort_request;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
@@ -179,9 +179,9 @@ static int avpacket_queue_get(AVPacketQueue *q, AVPacket *pkt, int block)
     return ret;
 }
 
-static int avpacket_queue_size(AVPacketQueue *q)
+static unsigned long long avpacket_queue_size(AVPacketQueue *q)
 {
-    int size;
+    unsigned long long size;
     pthread_mutex_lock(&q->mutex);
     size = q->size;
     pthread_mutex_unlock(&q->mutex);
