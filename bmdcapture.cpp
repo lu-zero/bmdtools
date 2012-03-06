@@ -113,20 +113,25 @@ static int avpacket_queue_put(AVPacketQueue *q, AVPacket *pkt)
 
     /* duplicate the packet */
     if (pkt != &flush_pkt && av_dup_packet(pkt) < 0)
+    {
         return -1;
+    }
 
     pkt1 = (AVPacketList *)av_malloc(sizeof(AVPacketList));
     if (!pkt1)
+    {
         return -1;
+    }
     pkt1->pkt = *pkt;
     pkt1->next = NULL;
 
     pthread_mutex_lock(&q->mutex);
 
-    if (!q->last_pkt)
+    if (!q->last_pkt) {
         q->first_pkt = pkt1;
-    else
+    } else {
         q->last_pkt->next = pkt1;
+    }
 
     q->last_pkt = pkt1;
     q->nb_packets++;
@@ -147,8 +152,10 @@ static int avpacket_queue_get(AVPacketQueue *q, AVPacket *pkt, int block)
 
     for(;;) {
         pkt1 = q->first_pkt;
-        if (pkt1) {
-            if (pkt1->pkt.data == flush_pkt.data) {
+        if (pkt1)
+        {
+            if (pkt1->pkt.data == flush_pkt.data)
+            {
                 ret = 0;
                 break;
             }
@@ -195,7 +202,8 @@ static AVStream *add_audio_stream(AVFormatContext *oc, enum CodecID codec_id)
     AVStream *st;
 
     st = avformat_new_stream(oc, NULL);
-    if (!st) {
+    if (!st)
+    {
         fprintf(stderr, "Could not alloc stream\n");
         exit(1);
     }
@@ -211,15 +219,19 @@ static AVStream *add_audio_stream(AVFormatContext *oc, enum CodecID codec_id)
     c->channels = 2;
     // some formats want stream headers to be separate
     if (oc->oformat->flags & AVFMT_GLOBALHEADER)
+    {
         c->flags |= CODEC_FLAG_GLOBAL_HEADER;
+    }
 
     codec = avcodec_find_encoder(c->codec_id);
-    if (!codec) {
+    if (!codec)
+    {
         fprintf(stderr, "codec not found\n");
         exit(1);
     }
 
-    if (avcodec_open2(c, codec, NULL) < 0) {
+    if (avcodec_open2(c, codec, NULL) < 0)
+    {
         fprintf(stderr, "could not open codec\n");
         exit(1);
     }
@@ -234,7 +246,8 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum CodecID codec_id)
     AVStream *st;
 
     st = avformat_new_stream(oc, NULL);
-    if (!st) {
+    if (!st)
+    {
         fprintf(stderr, "Could not alloc stream\n");
         exit(1);
     }
@@ -259,17 +272,21 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum CodecID codec_id)
 
     // some formats want stream headers to be separate
     if (oc->oformat->flags & AVFMT_GLOBALHEADER)
+    {
         c->flags |= CODEC_FLAG_GLOBAL_HEADER;
+    }
 
     /* find the video encoder */
     codec = avcodec_find_encoder(c->codec_id);
-    if (!codec) {
+    if (!codec)
+    {
         fprintf(stderr, "codec not found\n");
         exit(1);
     }
 
     /* open the codec */
-    if (avcodec_open2(c, codec, NULL) < 0) {
+    if (avcodec_open2(c, codec, NULL) < 0)
+    {
         fprintf(stderr, "could not open codec\n");
         exit(1);
     }
@@ -453,9 +470,13 @@ void print_output_modes (IDeckLink* deckLink)
 bail:
     // Ensure that the interfaces we obtained are released to prevent a memory leak
     if (displayModeIterator != NULL)
+    {
         displayModeIterator->Release();
+    }
     if (deckLinkOutput != NULL)
+    {
         deckLinkOutput->Release();
+    }
 }
 
 int usage(int status)
@@ -488,7 +509,9 @@ int usage(int status)
         // Increment the total number of DeckLink cards found
         numDevices++;
         if (numDevices > 1)
+        {
             printf("\n\n");
+        }
 
         // *** Print the model name of the DeckLink card
         result = deckLink->GetModelName((const char **) &deviceNameString);
@@ -506,7 +529,9 @@ int usage(int status)
 
     // If no DeckLink cards were found in the system, inform the user
     if (numDevices == 0)
+    {
         printf("No Blackmagic Design devices were found.\n");
+    }
     printf("\n");
 
 /*
@@ -685,14 +710,17 @@ int main(int argc, char *argv[])
         goto bail;
     }
 
-    if (!g_videoOutputFile) {
+    if (!g_videoOutputFile)
+    {
         fprintf(stderr, "Missing argument: Please specify output path using -f\n");
         goto bail;
     }
 
-    if (!fmt) {
+    if (!fmt)
+    {
         fmt = av_guess_format(NULL, g_videoOutputFile, NULL);
-        if (!fmt) {
+        if (!fmt)
+        {
           fprintf(stderr, "Unable to guess output format, please specify explicitly using -F\n");
           goto bail;
         }
@@ -727,8 +755,10 @@ int main(int argc, char *argv[])
     video_st = add_video_stream(oc, fmt->video_codec);
     audio_st = add_audio_stream(oc, fmt->audio_codec);
 
-    if (!(fmt->flags & AVFMT_NOFILE)) {
-        if (avio_open(&oc->pb, oc->filename, AVIO_FLAG_WRITE) < 0) {
+    if (!(fmt->flags & AVFMT_NOFILE))
+    {
+        if (avio_open(&oc->pb, oc->filename, AVIO_FLAG_WRITE) < 0)
+        {
             fprintf(stderr, "Could not open '%s'\n", oc->filename);
             exit(1);
         }
@@ -799,7 +829,8 @@ bail:
     if (oc != NULL)
     {
         av_write_trailer(oc);
-        if (!(fmt->flags & AVFMT_NOFILE)) {
+        if (!(fmt->flags & AVFMT_NOFILE))
+        {
             /* close the output file */
             avio_close(oc->pb);
         }
