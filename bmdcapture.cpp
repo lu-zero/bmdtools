@@ -89,7 +89,8 @@ static void avpacket_queue_flush(AVPacketQueue *q)
     AVPacketList *pkt, *pkt1;
 
     pthread_mutex_lock(&q->mutex);
-    for(pkt = q->first_pkt; pkt != NULL; pkt = pkt1) {
+    for (pkt = q->first_pkt; pkt != NULL; pkt = pkt1)
+    {
         pkt1 = pkt->next;
         av_free_packet(&pkt->pkt);
         av_freep(&pkt);
@@ -162,7 +163,9 @@ static int avpacket_queue_get(AVPacketQueue *q, AVPacket *pkt, int block)
             }
             q->first_pkt = pkt1->next;
             if (!q->first_pkt)
+            {
                 q->last_pkt = NULL;
+            }
             q->nb_packets--;
             q->size -= pkt1->pkt.size + sizeof(*pkt1);
             *pkt = pkt1->pkt;
