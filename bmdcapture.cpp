@@ -42,7 +42,6 @@ extern "C" {
 
 pthread_mutex_t                    sleepMutex;
 pthread_cond_t                     sleepCond;
-unsigned long long                 memory_limit = 1024*1024*1024; // 1GByte(>50 sec)
 int                                videoOutputFile = -1;
 int                                audioOutputFile = -1;
 
@@ -59,6 +58,7 @@ const char                       *g_videoOutputFile = NULL;
 const char                       *g_audioOutputFile = NULL;
 static int                        g_maxFrames = -1;
 bool                              g_verbose = false;
+unsigned long long                g_memoryLimit = 1024*1024*1024; // 1GByte(>50 sec)
 
 static unsigned long              frameCount = 0;
 static unsigned int               dropped = 0, totaldropped = 0;
@@ -381,7 +381,7 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
 //        frameCount++;
 
         if (g_maxFrames > 0 && frameCount >= g_maxFrames ||
-            avpacket_queue_size(&queue) > memory_limit)
+            avpacket_queue_size(&queue) > g_memoryLimit)
         {
             pthread_cond_signal(&sleepCond);
         }
@@ -575,6 +575,7 @@ int usage(int status)
         "    -c <channels>        Audio Channels (2, 8 or 16 - default is 2)\n"
         "    -s <depth>           Audio Sample Depth (16 or 32 - default is 16)\n"
         "    -n <frames>          Number of frames to capture (default is unlimited)\n"
+        "    -M <memlimit>        Maximum queue size in GB (default is 1 GB)\n"
         "    -C <num>             number of card to be used\n"
         "    -A <audio-in>        Audio input:\n"
         "                         1: Analog (RCA)\n"
@@ -631,7 +632,7 @@ int main(int argc, char *argv[])
     }
 
     // Parse command line options
-    while ((ch = getopt(argc, argv, "?hvc:s:f:a:m:n:F:C:A:V:")) != -1)
+    while ((ch = getopt(argc, argv, "?hvc:s:f:a:m:n:M:F:C:A:V:")) != -1)
     {
         switch (ch)
         {
@@ -664,6 +665,9 @@ int main(int argc, char *argv[])
                 break;
             case 'n':
                 g_maxFrames = atoi(optarg);
+                break;
+            case 'M':
+                g_memoryLimit = atoi(optarg) * 1024*1024*1024L;
                 break;
             case 'F':
                 fmt = av_guess_format(optarg, NULL, NULL);
