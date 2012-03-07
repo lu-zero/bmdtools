@@ -43,6 +43,7 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 }
+#include "compat.h"
 #include "Play.h"
 
 pthread_mutex_t          sleepMutex;
@@ -431,28 +432,20 @@ bool    TestPattern::Init(int videomode, int connection, int camera)
     //XXX make it generic
     switch (connection) {
         case 1:
-            deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection,
-                                  bmdVideoConnectionComposite);
-            deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
-                                  bmdAudioConnectionAnalog);
+            DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionComposite);
+            DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionAnalog);
             break;
         case 2:
-            deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection,
-                                  bmdVideoConnectionComponent);
-            deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
-                                  bmdAudioConnectionAnalog);
+            DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionComponent);
+            DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionAnalog);
             break;
         case 3:
-            deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection,
-                                  bmdVideoConnectionHDMI);
-            deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
-                                  bmdAudioConnectionEmbedded);
+            DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionHDMI);
+            DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionEmbedded);
             break;
         case 4:
-            deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection,
-                                  bmdVideoConnectionSDI);
-            deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
-                                  bmdAudioConnectionEmbedded);
+            DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionSDI);
+            DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionEmbedded);
             break;
         default:
             // do not change it
