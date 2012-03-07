@@ -875,7 +875,9 @@ bail:
     }
 
     if (deckLinkIterator != NULL)
+    {
         deckLinkIterator->Release();
+    }
 
     if (oc != NULL)
     {
