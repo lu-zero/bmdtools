@@ -1,4 +1,5 @@
 #pragma once
+#include "DeckLinkAPI.h"
 
 #ifdef IID_IDeckLinkVideoConversion
     /* IID_IDeckLinkVideoConversion is only available in recent DeckLink SDKs,
