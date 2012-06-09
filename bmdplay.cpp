@@ -361,14 +361,14 @@ int main(int argc, char *argv[])
     av_register_all();
     ic = avformat_alloc_context();
 
-    av_open_input_file(&ic, filename, NULL, 0, NULL);
-    av_find_stream_info(ic);
+    avformat_open_input(&ic, filename, NULL, NULL);
+    avformat_find_stream_info(ic, NULL);
 
     for (int i =0; i<ic->nb_streams; i++) {
         AVStream *st= ic->streams[i];
         AVCodecContext *avctx = st->codec;
         AVCodec *codec = avcodec_find_decoder(avctx->codec_id);
-        if (!codec || avcodec_open(avctx, codec) < 0)
+        if (!codec || avcodec_open2(avctx, codec, NULL) < 0)
             fprintf(stderr, "cannot find codecs for %s\n",
                 (avctx->codec_type == AVMEDIA_TYPE_AUDIO)? "Audio" : "Video");
         if (avctx->codec_type == AVMEDIA_TYPE_AUDIO) audio_st = st;
