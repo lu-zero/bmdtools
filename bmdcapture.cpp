@@ -220,7 +220,7 @@ static AVStream *add_audio_stream(AVFormatContext *oc, enum CodecID codec_id)
     c->sample_fmt = AV_SAMPLE_FMT_S16;
 //    c->bit_rate = 64000;
     c->sample_rate = 48000;
-    c->channels = 2;
+    c->channels = g_audioChannels;
     // some formats want stream headers to be separate
     if (oc->oformat->flags & AVFMT_GLOBALHEADER)
     {
