@@ -371,8 +371,12 @@ int main(int argc, char *argv[])
         if (!codec || avcodec_open2(avctx, codec, NULL) < 0)
             fprintf(stderr, "cannot find codecs for %s\n",
                 (avctx->codec_type == AVMEDIA_TYPE_AUDIO)? "Audio" : "Video");
-        if (avctx->codec_type == AVMEDIA_TYPE_AUDIO) audio_st = st;
-        if (avctx->codec_type == AVMEDIA_TYPE_VIDEO) video_st = st;
+        if (avctx->codec_type == AVMEDIA_TYPE_AUDIO) {
+            audio_st = st;
+        }
+        if (avctx->codec_type == AVMEDIA_TYPE_VIDEO) {
+            video_st = st;
+        }
     }
 
     av_dump_format(ic, 0, filename, 0);
@@ -553,7 +557,7 @@ void    Player::StartRunning (int videomode)
     }
 
     // Set the audio output mode
-    if (m_deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz, m_audioSampleDepth, m_audioChannelCount, bmdAudioOutputStreamTimestamped) != S_OK)
+    if (m_deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz, m_audioSampleDepth, audio_st->codec->channels, bmdAudioOutputStreamTimestamped) != S_OK)
 /*    bmdAudioOutputStreamTimestamped
     bmdAudioOutputStreamContinuous */
     {
