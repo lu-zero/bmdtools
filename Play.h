@@ -33,10 +33,10 @@ enum OutputSignal {
 };
 
 
-class TestPattern : public IDeckLinkVideoOutputCallback, public IDeckLinkAudioOutputCallback
+class Player : public IDeckLinkVideoOutputCallback, public IDeckLinkAudioOutputCallback
 {
 public:
-	TestPattern();
+	Player();
 
 protected:
 	bool							m_running;

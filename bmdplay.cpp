@@ -324,7 +324,7 @@ int usage(int status)
 
 int main(int argc, char *argv[])
 {
-    TestPattern generator;
+    Player generator;
     int         ch;
     int         videomode = 2;
     int         connection = 0;
@@ -387,7 +387,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-TestPattern::TestPattern()
+Player::Player()
 {
     m_audioChannelCount = 2;
     m_audioSampleRate = bmdAudioSampleRate48kHz;
@@ -396,7 +396,7 @@ TestPattern::TestPattern()
     m_outputSignal = kOutputSignalDrop;
 }
 
-bool    TestPattern::Init(int videomode, int connection, int camera)
+bool    Player::Init(int videomode, int connection, int camera)
 {
     // Initialize the DeckLink API
     IDeckLinkIterator*            deckLinkIterator = CreateDeckLinkIteratorInstance();
@@ -500,7 +500,7 @@ bail:
     return true;
 }
 
-IDeckLinkDisplayMode*    TestPattern::GetDisplayModeByIndex(int selectedIndex)
+IDeckLinkDisplayMode*    Player::GetDisplayModeByIndex(int selectedIndex)
 {
     // Populate the display mode combo with a list of display modes supported by the installed DeckLink card
     IDeckLinkDisplayModeIterator*        displayModeIterator;
@@ -530,7 +530,7 @@ bail:
     return selectedMode;
 }
 
-void    TestPattern::StartRunning (int videomode)
+void    Player::StartRunning (int videomode)
 {
     IDeckLinkDisplayMode*    videoDisplayMode = NULL;
     unsigned long            audioSamplesPerFrame;
@@ -616,7 +616,7 @@ bail:
 }
 
 
-void    TestPattern::StopRunning ()
+void    Player::StopRunning ()
 {
     // Stop the audio and video output streams immediately
     m_deckLinkOutput->StopScheduledPlayback(0, NULL, 0);
@@ -640,7 +640,7 @@ void    TestPattern::StopRunning ()
     m_running = false;
 }
 
-void    TestPattern::ScheduleNextFrame (bool prerolling)
+void    Player::ScheduleNextFrame (bool prerolling)
 {
 	AVPacket pkt;
 
@@ -674,7 +674,7 @@ void    TestPattern::ScheduleNextFrame (bool prerolling)
 	av_free_packet(&pkt);
 }
 
-void    TestPattern::WriteNextAudioSamples ()
+void    Player::WriteNextAudioSamples ()
 {
     uint32_t samplesWritten = 0;
     AVPacket pkt = {0};
@@ -706,19 +706,19 @@ void    TestPattern::WriteNextAudioSamples ()
 
 /************************* DeckLink API Delegate Methods *****************************/
 
-HRESULT        TestPattern::ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
+HRESULT        Player::ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
 {
     completedFrame->Release(); // We could recycle them probably
     ScheduleNextFrame(false);
     return S_OK;
 }
 
-HRESULT        TestPattern::ScheduledPlaybackHasStopped ()
+HRESULT        Player::ScheduledPlaybackHasStopped ()
 {
     return S_OK;
 }
 
-HRESULT        TestPattern::RenderAudioSamples (bool preroll)
+HRESULT        Player::RenderAudioSamples (bool preroll)
 {
     // Provide further audio samples to the DeckLink API until our preferred buffer waterlevel is reached
     WriteNextAudioSamples();
