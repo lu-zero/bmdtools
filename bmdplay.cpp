@@ -42,6 +42,7 @@
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <libavutil/mathematics.h>
 }
 #include "compat.h"
 #include "Play.h"
@@ -169,6 +170,9 @@ static int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block)
     pthread_mutex_unlock(&q->mutex);
     return ret;
 }
+int64_t first_audio_pts = AV_NOPTS_VALUE;
+int64_t first_video_pts = AV_NOPTS_VALUE;
+int64_t first_pts = AV_NOPTS_VALUE;
 
 void *fill_queues(void *unused) {
     AVPacket pkt;
@@ -177,12 +181,30 @@ void *fill_queues(void *unused) {
     while (1) {
 	    int err = av_read_frame(ic, &pkt);
 	    if (err) return NULL;
+	
 	    st = ic->streams[pkt.stream_index];
 	    switch (st->codec->codec_type) {
 	    case AVMEDIA_TYPE_VIDEO:
+            if (pkt.pts != AV_NOPTS_VALUE) {
+                if (first_pts == AV_NOPTS_VALUE) {
+	            first_pts = first_video_pts = pkt.pts;
+		    first_audio_pts =
+			 av_rescale_q(pkt.pts, video_st->time_base,
+						audio_st->time_base);
+                }
+	        pkt.pts -= first_video_pts;
+            }
 		packet_queue_put(&videoqueue, &pkt);
 	    break;
 	    case AVMEDIA_TYPE_AUDIO:
+            if (pkt.pts != AV_NOPTS_VALUE) {
+		if (first_pts == AV_NOPTS_VALUE) {
+                    first_pts = first_audio_pts = pkt.pts;
+                    first_video_pts = 
+                         av_rescale_q(pkt.pts, audio_st->time_base,                                                            video_st->time_base);
+                }
+	        pkt.pts -= first_audio_pts;
+            }
 		packet_queue_put(&audioqueue, &pkt);
 	    break;
 	    }
@@ -675,6 +697,7 @@ void    Player::ScheduleNextFrame (bool prerolling)
                                                 video_st->time_base.den) != S_OK)
 	fprintf(stderr, "Error scheduling frame\n");
         }
+	fprintf(stderr, "v %ld %d/%d\n", pkt.pts, video_st->time_base.num, video_st->time_base.den); 
 	av_free_packet(&pkt);
 }
 
@@ -692,6 +715,8 @@ void    Player::WriteNextAudioSamples ()
        exit(0);
        return;
     }
+
+    fprintf(stderr, "a %ld %d/%d\n", pkt.pts, audio_st->time_base.num, audio_st->time_base.den); 
 
     data_size = sizeof(audio_buffer);
     avcodec_decode_audio3(audio_st->codec,
