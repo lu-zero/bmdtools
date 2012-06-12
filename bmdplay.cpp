@@ -670,9 +670,9 @@ void    Player::ScheduleNextFrame (bool prerolling)
 	 		   video_st->codec->height));
 
         if (m_deckLinkOutput->ScheduleVideoFrame(videoFrame,
-                                                pkt.pts,
-                                                pkt.duration,
-                                                video_st->codec->time_base.den) != S_OK)
+                                                pkt.pts * video_st->time_base.num,
+                                                pkt.duration * video_st->time_base.num,
+                                                video_st->time_base.den) != S_OK)
 	fprintf(stderr, "Error scheduling frame\n");
         }
 	av_free_packet(&pkt);
