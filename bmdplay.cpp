@@ -181,7 +181,7 @@ void *fill_queues(void *unused) {
     while (1) {
 	    int err = av_read_frame(ic, &pkt);
 	    if (err) return NULL;
-	
+
 	    st = ic->streams[pkt.stream_index];
 	    switch (st->codec->codec_type) {
 	    case AVMEDIA_TYPE_VIDEO:
@@ -200,7 +200,7 @@ void *fill_queues(void *unused) {
             if (pkt.pts != AV_NOPTS_VALUE) {
 		if (first_pts == AV_NOPTS_VALUE) {
                     first_pts = first_audio_pts = pkt.pts;
-                    first_video_pts = 
+                    first_video_pts =
                          av_rescale_q(pkt.pts, audio_st->time_base,                                                            video_st->time_base);
                 }
 	        pkt.pts -= first_audio_pts;
@@ -586,40 +586,6 @@ void    Player::StartRunning (int videomode)
         fprintf(stderr, "Failed to enable audio output\n");
         goto bail;
     }
-/*
-    // Generate one second of audio
-    m_audioBufferSampleLength = (unsigned long)((m_framesPerSecond * m_audioSampleRate * m_frameDuration) / m_frameTimescale);
-    m_audioBuffer = valloc(m_audioBufferSampleLength * m_audioChannelCount * (m_audioSampleDepth / 8));
-
-    if (m_audioBuffer == NULL)
-    {
-        fprintf(stderr, "Failed to allocate audio buffer memory\n");
-        goto bail;
-    }
-
-    // Zero the buffer (interpreted as audio silence)
-    audioSamplesPerFrame = (unsigned long)((m_audioSampleRate * m_frameDuration) / m_frameTimescale);
-
-
-    // Generate a frame of black
-    if (m_deckLinkOutput->CreateVideoFrame(m_frameWidth, m_frameHeight, m_frameWidth*2, bmdFormat8BitYUV, bmdFrameFlagDefault, &m_videoFrameBlack) != S_OK)
-    {
-        fprintf(stderr, "Failed to create video frame\n");
-        goto bail;
-    }
-    FillBlack(m_videoFrameBlack);
-
-    // Generate a frame of colour bars
-    if (m_deckLinkOutput->CreateVideoFrame(m_frameWidth, m_frameHeight, m_frameWidth*2, bmdFormat8BitYUV, bmdFrameFlagDefault, &m_videoFrameBars) != S_OK)
-    {
-        fprintf(stderr, "Failed to create video frame\n");
-        goto bail;
-    }
-    FillColourBars(m_videoFrameBars);
-
-    // Begin video preroll by scheduling a second of frames in hardware
-    m_totalFramesScheduled = 0;
-*/
 
     for (unsigned i = 0; i < 10; i++)
     	ScheduleNextFrame(true);
@@ -697,7 +663,6 @@ void    Player::ScheduleNextFrame (bool prerolling)
                                                 video_st->time_base.den) != S_OK)
 	fprintf(stderr, "Error scheduling frame\n");
         }
-	fprintf(stderr, "v %ld %d/%d\n", pkt.pts, video_st->time_base.num, video_st->time_base.den); 
 	av_free_packet(&pkt);
 }
 
@@ -715,8 +680,6 @@ void    Player::WriteNextAudioSamples ()
        exit(0);
        return;
     }
-
-    fprintf(stderr, "a %ld %d/%d\n", pkt.pts, audio_st->time_base.num, audio_st->time_base.den); 
 
     data_size = sizeof(audio_buffer);
     avcodec_decode_audio3(audio_st->codec,
