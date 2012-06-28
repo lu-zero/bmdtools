@@ -180,8 +180,17 @@ void *fill_queues(void *unused) {
 
     while (1) {
 	    int err = av_read_frame(ic, &pkt);
-	    if (err) return NULL;
-
+	    if (err) {
+                if (videoqueue.size >= 0) {
+                    fprintf(stderr, "Cannot get new frames, flushing\n");
+                    continue;
+                } else {
+                    fprintf(stderr, "End of stream\n");
+                }
+            }
+            if (videoqueue.size > 1000) {
+                fprintf(stderr, "Queue size %d problems ahead\n", videoqueue.size);
+            }
 	    st = ic->streams[pkt.stream_index];
 	    switch (st->codec->codec_type) {
 	    case AVMEDIA_TYPE_VIDEO:
