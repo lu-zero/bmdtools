@@ -43,6 +43,7 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/mathematics.h>
+#include "libswscale/swscale.h"
 }
 #include "compat.h"
 #include "Play.h"
@@ -75,6 +76,7 @@ typedef struct PacketQueue {
 
 PacketQueue audioqueue;
 PacketQueue videoqueue;
+struct SwsContext *sws;
 
 static int packet_queue_put(PacketQueue *q, AVPacket *pkt);
 
@@ -412,6 +414,14 @@ int main(int argc, char *argv[])
 
     av_dump_format(ic, 0, filename, 0);
 
+    sws = sws_getContext(video_st->codec->width,
+                         video_st->codec->height,
+                         video_st->codec->pix_fmt,
+                         video_st->codec->width,
+                         video_st->codec->height,
+                         PIX_FMT_UYVY422,
+                         SWS_BILINEAR, NULL, NULL, NULL);
+
     signal(SIGINT, sigfunc);
     pthread_mutex_init(&sleepMutex, NULL);
     pthread_cond_init(&sleepCond, NULL);
@@ -644,6 +654,7 @@ void    Player::StopRunning ()
 void    Player::ScheduleNextFrame (bool prerolling)
 {
 	AVPacket pkt;
+        AVPicture picture;
 
 	packet_queue_get(&videoqueue, &pkt, 1);
 
@@ -661,10 +672,11 @@ void    Player::ScheduleNextFrame (bool prerolling)
 	avcodec_decode_video2(video_st->codec, avframe, &got_picture, &pkt);
         if (got_picture) {
 
-        memcpy(frame, avframe->data[0],
-		avpicture_get_size(video_st->codec->pix_fmt,
-	 		   video_st->codec->width,
-	 		   video_st->codec->height));
+        avpicture_fill(&picture, (uint8_t *)frame, PIX_FMT_UYVY422,
+                       m_frameWidth, m_frameHeight);
+
+        sws_scale(sws, avframe->data, avframe->linesize, 0, avframe->height,
+                  picture.data, picture.linesize);
 
         if (m_deckLinkOutput->ScheduleVideoFrame(videoFrame,
                                                 pkt.pts * video_st->time_base.num,
