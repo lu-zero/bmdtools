@@ -62,7 +62,7 @@ unsigned long long                g_memoryLimit = 1024*1024*1024; // 1GByte(>50 
 
 static unsigned long              frameCount = 0;
 static unsigned int               dropped = 0, totaldropped = 0;
-
+static enum PixelFormat           pix_fmt = PIX_FMT_UYVY422;
 typedef struct AVPacketQueue {
     AVPacketList *first_pkt, *last_pkt;
     int nb_packets;
@@ -71,7 +71,6 @@ typedef struct AVPacketQueue {
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 } AVPacketQueue;
-
 
 static AVPacketQueue queue;
 
@@ -272,7 +271,7 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum CodecID codec_id)
     displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
     c->time_base.den = frameRateScale;
     c->time_base.num = frameRateDuration;
-    c->pix_fmt = PIX_FMT_UYVY422;
+    c->pix_fmt = pix_fmt;
 
     // some formats want stream headers to be separate
     if (oc->oformat->flags & AVFMT_GLOBALHEADER)
@@ -360,7 +359,7 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame
             }
             videoFrame->GetBytes(&frameBytes);
             avpicture_fill((AVPicture*)picture, (uint8_t *)frameBytes,
-                           PIX_FMT_UYVY422,
+                           pix_fmt,
                            videoFrame->GetWidth(), videoFrame->GetHeight());
             videoFrame->GetStreamTime(&frameTime, &frameDuration,
                                       video_st->time_base.den);
@@ -574,6 +573,7 @@ int usage(int status)
         "    -F <format>          Define the file format to be used\n"
         "    -c <channels>        Audio Channels (2, 8 or 16 - default is 2)\n"
         "    -s <depth>           Audio Sample Depth (16 or 32 - default is 16)\n"
+        "    -p <pixel>           PixelFormat Depth (8 or 10 - default is 8)\n"
         "    -n <frames>          Number of frames to capture (default is unlimited)\n"
         "    -M <memlimit>        Maximum queue size in GB (default is 1 GB)\n"
         "    -C <num>             number of card to be used\n"
@@ -619,6 +619,7 @@ int main(int argc, char *argv[])
     int                            exitStatus = 1;
     int                            aconnection = 0, vconnection = 0, camera = 0, i=0;
     int                            ch;
+    BMDPixelFormat                 pix = bmdFormat8BitYUV;
     HRESULT                        result;
 
     pthread_mutex_init(&sleepMutex, NULL);
@@ -632,7 +633,7 @@ int main(int argc, char *argv[])
     }
 
     // Parse command line options
-    while ((ch = getopt(argc, argv, "?hvc:s:f:a:m:n:M:F:C:A:V:")) != -1)
+    while ((ch = getopt(argc, argv, "?hvc:s:f:a:m:n:p:M:F:C:A:V:")) != -1)
     {
         switch (ch)
         {
@@ -657,6 +658,21 @@ int main(int argc, char *argv[])
                 if (g_audioSampleDepth != 16 && g_audioSampleDepth != 32)
                 {
                     fprintf(stderr, "Invalid argument: Audio Sample Depth must be either 16 bits or 32 bits\n");
+                    goto bail;
+                }
+                break;
+            case 'p':
+                switch (atoi(optarg)) {
+                case  8:
+                    pix = bmdFormat8BitYUV;
+                    pix_fmt = PIX_FMT_UYVY422;
+                    break;
+                case 10:
+                    pix = bmdFormat10BitYUV;
+                    pix_fmt = PIX_FMT_YUV422P10;
+                    break;
+                default:
+                    fprintf(stderr, "Invalid argument: Pixel Format Depth must be either 8 bits or 10 bits\n");
                     goto bail;
                 }
                 break;
@@ -821,7 +837,7 @@ int main(int argc, char *argv[])
         goto bail;
     }
 
-    result = deckLinkInput->EnableVideoInput(selectedDisplayMode, bmdFormat8BitYUV, 0);
+    result = deckLinkInput->EnableVideoInput(selectedDisplayMode, pix, 0);
     if (result != S_OK)
     {
         fprintf(stderr, "Failed to enable video input. Is another application using the card?\n");
