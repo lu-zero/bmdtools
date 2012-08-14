@@ -198,7 +198,7 @@ AVStream *audio_st, *video_st;
 BMDTimeValue frameRateDuration, frameRateScale;
 
 
-static AVStream *add_audio_stream(AVFormatContext *oc, enum CodecID codec_id)
+static AVStream *add_audio_stream(AVFormatContext *oc, enum AVCodecID codec_id)
 {
     AVCodecContext *c;
     AVCodec *codec;
@@ -242,7 +242,7 @@ static AVStream *add_audio_stream(AVFormatContext *oc, enum CodecID codec_id)
     return st;
 }
 
-static AVStream *add_video_stream(AVFormatContext *oc, enum CodecID codec_id)
+static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
 {
     AVCodecContext *c;
     AVCodec *codec;
@@ -816,8 +816,8 @@ int main(int argc, char *argv[])
 
     snprintf(oc->filename, sizeof(oc->filename), "%s", g_videoOutputFile);
 
-    fmt->video_codec = CODEC_ID_RAWVIDEO;
-    fmt->audio_codec = CODEC_ID_PCM_S16LE;
+    fmt->video_codec = AV_CODEC_ID_RAWVIDEO;
+    fmt->audio_codec = AV_CODEC_ID_PCM_S16LE;
 
     video_st = add_video_stream(oc, fmt->video_codec);
     audio_st = add_audio_stream(oc, fmt->audio_codec);

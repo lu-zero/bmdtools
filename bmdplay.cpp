@@ -57,6 +57,8 @@ AVFrame *avframe;
 AVStream *audio_st = NULL;
 AVStream *video_st = NULL;
 
+static enum PixelFormat           pix_fmt = PIX_FMT_UYVY422;
+static BMDPixelFormat                 pix = bmdFormat8BitYUV;
 
 DECLARE_ALIGNED(16,uint8_t,audio_buffer)[(AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2];
 int data_size = sizeof(audio_buffer);
@@ -345,6 +347,7 @@ int usage(int status)
         "    -f <filename>        Filename raw video will be written to\n"
         "    -C <num>             Card number to be used\n"
         "    -b <num>             Seconds of pre-buffering before playback (default = 2 sec)\n"
+        "    -p <pixel>           PixelFormat Depth (8 or 10 - default is 8)\n"
         "    -O <output>          Output connection:\n"
         "                         1: Composite video + analog audio\n"
         "                         2: Components video + analog audio\n"
@@ -364,10 +367,25 @@ int main(int argc, char *argv[])
     int         camera = 0;
     char *filename=NULL;
 
-    while ((ch = getopt(argc, argv, "?hs:f:a:m:n:F:C:O:b:")) != -1)
+    while ((ch = getopt(argc, argv, "?hs:f:a:m:n:F:C:O:b:p:")) != -1)
     {
         switch (ch)
         {
+            case 'p':
+                switch (atoi(optarg)) {
+                case  8:
+                    pix = bmdFormat8BitYUV;
+                    pix_fmt = PIX_FMT_UYVY422;
+                    break;
+                case 10:
+                    pix = bmdFormat10BitYUV;
+                    pix_fmt = PIX_FMT_YUV422P10;
+                    break;
+                default:
+                    fprintf(stderr, "Invalid argument: Pixel Format Depth must be either 8 bits or 10 bits\n");
+                    return usage(1);
+                }
+                break;
             case 'f':
                 filename = strdup(optarg);
                 break;
@@ -419,7 +437,7 @@ int main(int argc, char *argv[])
                          video_st->codec->pix_fmt,
                          video_st->codec->width,
                          video_st->codec->height,
-                         PIX_FMT_UYVY422,
+                         pix_fmt,
                          SWS_BILINEAR, NULL, NULL, NULL);
 
     signal(SIGINT, sigfunc);
@@ -662,7 +680,7 @@ void    Player::ScheduleNextFrame (bool prerolling)
         m_deckLinkOutput->CreateVideoFrame(m_frameWidth,
                                            m_frameHeight,
                                            m_frameWidth*2,
-                                           bmdFormat8BitYUV,
+                                           pix,
                                            bmdFrameFlagDefault,
                                            &videoFrame);
         void *frame;
@@ -672,7 +690,7 @@ void    Player::ScheduleNextFrame (bool prerolling)
 	avcodec_decode_video2(video_st->codec, avframe, &got_picture, &pkt);
         if (got_picture) {
 
-        avpicture_fill(&picture, (uint8_t *)frame, PIX_FMT_UYVY422,
+        avpicture_fill(&picture, (uint8_t *)frame, pix_fmt,
                        m_frameWidth, m_frameHeight);
 
         sws_scale(sws, avframe->data, avframe->linesize, 0, avframe->height,
