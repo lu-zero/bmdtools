@@ -224,7 +224,6 @@ void *fill_queues(void *unused) {
 /*	    while (videoqueue.nb_packets>10)
 		usleep(30); */
 	    //fprintf(stderr, "V %d A %d\n", videoqueue.nb_packets, audioqueue.nb_packets); //----->
-            av_free_packet(&pkt);
     }
     return NULL;
 }
