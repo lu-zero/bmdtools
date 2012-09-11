@@ -488,11 +488,9 @@ int main(int argc, char *argv[])
 
 Player::Player()
 {
-    m_audioChannelCount = 2;
-    m_audioSampleRate   = bmdAudioSampleRate48kHz;
-    m_audioSampleDepth  = 16;
-    m_running           = false;
-    m_outputSignal      = kOutputSignalDrop;
+    m_audioSampleRate = bmdAudioSampleRate48kHz;
+    m_running         = false;
+    m_outputSignal    = kOutputSignalDrop;
 }
 
 bool Player::Init(int videomode, int connection, int camera)
@@ -506,6 +504,30 @@ bool Player::Init(int videomode, int connection, int camera)
         fprintf(stderr,
                 "This application requires the DeckLink drivers installed.\n");
         goto bail;
+    }
+
+    m_audioSampleDepth =
+        av_get_exact_bits_per_sample(audio_st->codec->codec_id);
+
+    switch (audio_st->codec->channels) {
+        case  2:
+        case  8:
+        case 16:
+            break;
+        default:
+            fprintf(stderr,
+                    "%d channels not supported, please use 2, 8 or 16\n",
+                    audio_st->codec->channels);
+            goto bail;
+    }
+
+    switch (m_audioSampleDepth) {
+        case 16:
+        case 32:
+            break;
+        default:
+            fprintf(stderr, "%dbit audio not supported use 16bit or 32bit\n",
+                    m_audioSampleDepth);
     }
 
     do
@@ -735,6 +757,10 @@ void Player::WriteNextAudioSamples()
     uint32_t samplesWritten = 0;
     AVPacket pkt            = { 0 };
     unsigned int bufferedSamples;
+    int bytes_per_sample =
+        av_get_bytes_per_sample(audio_st->codec->sample_fmt) *
+        audio_st->codec->channels;
+
     m_deckLinkOutput->GetBufferedAudioSampleFrameCount(&bufferedSamples);
 
     if (bufferedSamples > kAudioWaterlevel)
@@ -752,7 +778,7 @@ void Player::WriteNextAudioSamples()
     av_free_packet(&pkt);
 
     if (m_deckLinkOutput->ScheduleAudioSamples(audio_buffer + offset,
-                                               data_size / 4,
+                                               data_size / bytes_per_sample,
                                                pkt.pts, 48000,
                                                &samplesWritten) != S_OK)
         fprintf(stderr, "error writing audio sample\n");
