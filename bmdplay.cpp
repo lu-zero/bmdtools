@@ -63,7 +63,7 @@ static BMDPixelFormat                 pix = bmdFormat8BitYUV;
 DECLARE_ALIGNED(16,uint8_t,audio_buffer)[(AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2];
 int data_size = sizeof(audio_buffer);
 int offset = 0;
-int buffer = 2;
+int buffer = 2000*1000;
 
 const unsigned long        kAudioWaterlevel = 48000/4; /* small */
 
@@ -346,7 +346,7 @@ int usage(int status)
     fprintf(stderr,
         "    -f <filename>        Filename raw video will be written to\n"
         "    -C <num>             Card number to be used\n"
-        "    -b <num>             Seconds of pre-buffering before playback (default = 2 sec)\n"
+        "    -b <num>             Milliseconds of pre-buffering before playback (default = 2000 ms)\n"
         "    -p <pixel>           PixelFormat Depth (8 or 10 - default is 8)\n"
         "    -O <output>          Output connection:\n"
         "                         1: Composite video + analog audio\n"
@@ -399,7 +399,7 @@ int main(int argc, char *argv[])
                 camera = atoi(optarg);
                 break;
             case 'b':
-                buffer = atoi(optarg);
+                buffer = atoi(optarg) * 1000;
                 break;
             case '?':
             case 'h':
@@ -526,7 +526,7 @@ bool    Player::Init(int videomode, int connection, int camera)
     pthread_t th;
     pthread_create(&th, NULL, fill_queues, NULL);
 
-    sleep(buffer);// You can add the seconds you need for pre-buffering before start playing
+    usleep(buffer);// You can add the microseconds you need for pre-buffering before start playing
     // Start playing
     StartRunning(videomode);
 
