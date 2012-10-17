@@ -1,7 +1,7 @@
 #pragma once
-#include "DeckLinkAPI.h"
+#include "DeckLinkAPIVersion.h"
 
-#ifdef IID_IDeckLinkVideoConversion
+#if (BLACKMAGIC_DECKLINK_API_VERSION > 0x07030000)
     /* IID_IDeckLinkVideoConversion is only available in recent DeckLink SDKs,
        at least 7.9 has it and 7.3 does not have it, so it's fine for now
        but we might need to find a better way determining the SDK version
