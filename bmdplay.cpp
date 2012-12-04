@@ -177,20 +177,16 @@ static int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block)
 int64_t first_audio_pts = AV_NOPTS_VALUE;
 int64_t first_video_pts = AV_NOPTS_VALUE;
 int64_t first_pts = AV_NOPTS_VALUE;
+int fill_me = 1;
 
 void *fill_queues(void *unused) {
     AVPacket pkt;
     AVStream *st;
 
-    while (1) {
+    while (fill_me) {
 	    int err = av_read_frame(ic, &pkt);
 	    if (err) {
-                if (videoqueue.nb_packets >= 0) {
-                    fprintf(stderr, "Cannot get new frames, flushing\n");
-                    continue;
-                } else {
-                    fprintf(stderr, "End of stream\n");
-                }
+                return NULL;
             }
             if (videoqueue.nb_packets > 1000) {
                 fprintf(stderr, "Queue size %d problems ahead\n", videoqueue.size);
@@ -444,6 +440,8 @@ int main(int argc, char *argv[])
     pthread_mutex_init(&sleepMutex, NULL);
     pthread_cond_init(&sleepCond, NULL);
 
+    free(filename);
+
     if (!generator.Init(videomode, connection, camera))
         return 1;
 
@@ -533,7 +531,7 @@ bool    Player::Init(int videomode, int connection, int camera)
     pthread_mutex_lock(&sleepMutex);
     pthread_cond_wait(&sleepCond, &sleepMutex);
     pthread_mutex_unlock(&sleepMutex);
-    pthread_kill(th, 9);
+    fill_me = 0;
     fprintf(stderr, "Bailling out\n");
 
 bail:
@@ -612,7 +610,7 @@ void    Player::StartRunning (int videomode)
     if (m_deckLinkOutput->EnableVideoOutput(videoDisplayMode->GetDisplayMode(), bmdVideoOutputFlagDefault) != S_OK)
     {
         fprintf(stderr, "Failed to enable video output\n");
-        goto bail;
+        return;
     }
 
     // Set the audio output mode
@@ -621,7 +619,7 @@ void    Player::StartRunning (int videomode)
     bmdAudioOutputStreamContinuous */
     {
         fprintf(stderr, "Failed to enable audio output\n");
-        goto bail;
+        return;
     }
 
     for (unsigned i = 0; i < 10; i++)
@@ -632,16 +630,12 @@ void    Player::StartRunning (int videomode)
     if (m_deckLinkOutput->BeginAudioPreroll() != S_OK)
     {
         fprintf(stderr, "Failed to begin audio preroll\n");
-        goto bail;
+        return;
     }
 
     m_running = true;
 
     return;
-
-bail:
-    // *** Error-handling code.  Cleanup any resources that were allocated. *** //
-    StopRunning();
 }
 
 
@@ -653,20 +647,9 @@ void    Player::StopRunning ()
     m_deckLinkOutput->DisableAudioOutput();
     m_deckLinkOutput->DisableVideoOutput();
 
-    if (m_videoFrameBlack != NULL)
-        m_videoFrameBlack->Release();
-    m_videoFrameBlack = NULL;
-
-    if (m_videoFrameBars != NULL)
-        m_videoFrameBars->Release();
-    m_videoFrameBars = NULL;
-
     if (m_audioBuffer != NULL)
         free(m_audioBuffer);
     m_audioBuffer = NULL;
-
-    // Success; update the UI
-    m_running = false;
 }
 
 void    Player::ScheduleNextFrame (bool prerolling)
@@ -716,7 +699,7 @@ void    Player::WriteNextAudioSamples ()
 
     if(!packet_queue_get(&audioqueue, &pkt, 0)) {
        fprintf(stderr, "I'd quit now \n");
-       exit(0);
+       pthread_cond_signal(&sleepCond);
        return;
     }
 

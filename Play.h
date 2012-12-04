@@ -48,8 +48,6 @@ protected:
 	BMDTimeValue					m_frameDuration;
 	BMDTimeScale					m_frameTimescale;
 	unsigned long					m_framesPerSecond;
-	IDeckLinkMutableVideoFrame*		m_videoFrameBlack;
-	IDeckLinkMutableVideoFrame*		m_videoFrameBars;
 	unsigned long					m_totalFramesScheduled;
 
 	OutputSignal					m_outputSignal;
