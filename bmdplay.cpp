@@ -357,7 +357,7 @@ int usage(int status)
 int main(int argc, char *argv[])
 {
     Player generator;
-    int         ch;
+    int         ch, ret;
     int         videomode = 2;
     int         connection = 0;
     int         camera = 0;
@@ -442,10 +442,16 @@ int main(int argc, char *argv[])
 
     free(filename);
 
-    if (!generator.Init(videomode, connection, camera))
-        return 1;
+    ret = generator.Init(videomode, connection, camera);
 
-    return 0;
+    avformat_close_input(&ic);
+
+    fprintf(stderr, "video %d", videoqueue.nb_packets, audioqueue.nb_packets);
+
+    packet_queue_end(&audioqueue);
+    packet_queue_end(&videoqueue);
+
+    return ret;
 }
 
 Player::Player()
@@ -685,6 +691,7 @@ void    Player::ScheduleNextFrame (bool prerolling)
                                                 video_st->time_base.den) != S_OK)
 	fprintf(stderr, "Error scheduling frame\n");
         }
+        videoFrame->Release();
 	av_free_packet(&pkt);
 }
 
@@ -722,7 +729,6 @@ void    Player::WriteNextAudioSamples ()
 
 HRESULT        Player::ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
 {
-    completedFrame->Release(); // We could recycle them probably
     ScheduleNextFrame(false);
     return S_OK;
 }
