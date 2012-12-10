@@ -69,7 +69,7 @@ const unsigned long        kAudioWaterlevel = 48000/4; /* small */
 
 typedef struct PacketQueue {
     AVPacketList *first_pkt, *last_pkt;
-    int nb_packets;
+    uint64_t nb_packets;
     int size;
     int abort_request;
     pthread_mutex_t mutex;
@@ -110,6 +110,10 @@ static void packet_queue_flush(PacketQueue *q)
 static void packet_queue_end(PacketQueue *q)
 {
     packet_queue_flush(q);
+    pthread_mutex_lock(&q->mutex);
+    q->abort_request = -1;
+    pthread_cond_signal(&q->cond);
+    pthread_mutex_unlock(&q->mutex);
     pthread_mutex_destroy(&q->mutex);
     pthread_cond_destroy(&q->cond);
 }
@@ -137,6 +141,11 @@ static int packet_queue_put(PacketQueue *q, AVPacket *pkt)
         q->last_pkt->next = pkt1;
     q->last_pkt = pkt1;
     q->nb_packets++;
+    if (q->nb_packets > 1000)
+        fprintf(stderr, "%ld storing %p, %s\n",
+                q->nb_packets,
+                q,
+                q == &videoqueue ? "videoqueue" : "audioqueue");
     q->size += pkt1->pkt.size + sizeof(*pkt1);
 
     pthread_cond_signal(&q->cond);
@@ -159,6 +168,11 @@ static int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block)
             if (!q->first_pkt)
                 q->last_pkt = NULL;
             q->nb_packets--;
+            if (q->nb_packets > 1000)
+                fprintf(stderr, "pulling %ld from %p %s\n",
+                        q->nb_packets,
+                        q,
+                        q == &videoqueue ? "videoqueue" : "audioqueue" );
             q->size -= pkt1->pkt.size + sizeof(*pkt1);
             *pkt = pkt1->pkt;
             av_free(pkt1);
@@ -168,6 +182,10 @@ static int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block)
             ret = 0;
             break;
         } else {
+            if (q->abort_request) {
+                ret = -1;
+                break;
+            }
             pthread_cond_wait(&q->cond, &q->mutex);
         }
     }
@@ -182,6 +200,7 @@ int fill_me = 1;
 void *fill_queues(void *unused) {
     AVPacket pkt;
     AVStream *st;
+    int once = 0;
 
     while (fill_me) {
 	    int err = av_read_frame(ic, &pkt);
@@ -189,7 +208,8 @@ void *fill_queues(void *unused) {
                 return NULL;
             }
             if (videoqueue.nb_packets > 1000) {
-                fprintf(stderr, "Queue size %d problems ahead\n", videoqueue.size);
+                if (!once++)
+                    fprintf(stderr, "Queue size %d problems ahead\n", videoqueue.size);
             }
 	    st = ic->streams[pkt.stream_index];
 	    switch (st->codec->codec_type) {
@@ -446,10 +466,7 @@ int main(int argc, char *argv[])
 
     avformat_close_input(&ic);
 
-    fprintf(stderr, "video %d", videoqueue.nb_packets, audioqueue.nb_packets);
-
-    packet_queue_end(&audioqueue);
-    packet_queue_end(&videoqueue);
+    fprintf(stderr, "video %d audio %d", videoqueue.nb_packets, audioqueue.nb_packets);
 
     return ret;
 }
@@ -539,6 +556,8 @@ bool    Player::Init(int videomode, int connection, int camera)
     pthread_mutex_unlock(&sleepMutex);
     fill_me = 0;
     fprintf(stderr, "Bailling out\n");
+    packet_queue_end(&audioqueue);
+    packet_queue_end(&videoqueue);
 
 bail:
     if (m_running == true)
@@ -663,7 +682,8 @@ void    Player::ScheduleNextFrame (bool prerolling)
 	AVPacket pkt;
         AVPicture picture;
 
-	packet_queue_get(&videoqueue, &pkt, 1);
+	if (packet_queue_get(&videoqueue, &pkt, 1) < 0)
+	    return;
 
         IDeckLinkMutableVideoFrame *videoFrame;
         m_deckLinkOutput->CreateVideoFrame(m_frameWidth,
