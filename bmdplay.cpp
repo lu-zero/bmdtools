@@ -555,7 +555,7 @@ bool    Player::Init(int videomode, int connection, int camera)
     pthread_cond_wait(&sleepCond, &sleepMutex);
     pthread_mutex_unlock(&sleepMutex);
     fill_me = 0;
-    fprintf(stderr, "Bailling out\n");
+    fprintf(stderr, "Exiting, cleaning up\n");
     packet_queue_end(&audioqueue);
     packet_queue_end(&videoqueue);
 
