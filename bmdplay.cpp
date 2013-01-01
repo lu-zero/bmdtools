@@ -141,7 +141,7 @@ static int packet_queue_put(PacketQueue *q, AVPacket *pkt)
         q->last_pkt->next = pkt1;
     q->last_pkt = pkt1;
     q->nb_packets++;
-    if (q->nb_packets > 1000)
+    if (q->nb_packets > 5000)
         fprintf(stderr, "%ld storing %p, %s\n",
                 q->nb_packets,
                 q,
@@ -168,7 +168,7 @@ static int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block)
             if (!q->first_pkt)
                 q->last_pkt = NULL;
             q->nb_packets--;
-            if (q->nb_packets > 1000)
+            if (q->nb_packets > 5000)
                 fprintf(stderr, "pulling %ld from %p %s\n",
                         q->nb_packets,
                         q,
