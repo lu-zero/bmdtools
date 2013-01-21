@@ -261,6 +261,8 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
     c->time_base.num = frameRateDuration;
     c->pix_fmt       = pix_fmt;
 
+    if (codec_id == AV_CODEC_ID_V210)
+        c->bits_per_raw_sample = 10;
     // some formats want stream headers to be separate
     if (oc->oformat->flags & AVFMT_GLOBALHEADER) {
         c->flags |= CODEC_FLAG_GLOBAL_HEADER;
@@ -812,7 +814,7 @@ int main(int argc, char *argv[])
 
     snprintf(oc->filename, sizeof(oc->filename), "%s", g_videoOutputFile);
 
-    fmt->video_codec = AV_CODEC_ID_RAWVIDEO;
+    fmt->video_codec = (pix == bmdFormat8BitYUV ? AV_CODEC_ID_RAWVIDEO : AV_CODEC_ID_V210);
     fmt->audio_codec = AV_CODEC_ID_PCM_S16LE;
 
     video_st = add_video_stream(oc, fmt->video_codec);
