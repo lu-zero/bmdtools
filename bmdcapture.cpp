@@ -63,6 +63,7 @@ unsigned long long g_memoryLimit = 1024 * 1024 * 1024;            // 1GByte(>50 
 static unsigned long frameCount = 0;
 static unsigned int dropped     = 0, totaldropped = 0;
 static enum PixelFormat pix_fmt = PIX_FMT_UYVY422;
+static enum AVSampleFormat sample_fmt = AV_SAMPLE_FMT_S16;
 typedef struct AVPacketQueue {
     AVPacketList *first_pkt, *last_pkt;
     int nb_packets;
@@ -208,7 +209,7 @@ static AVStream *add_audio_stream(AVFormatContext *oc, enum AVCodecID codec_id)
     c->codec_type = AVMEDIA_TYPE_AUDIO;
 
     /* put sample parameters */
-    c->sample_fmt = AV_SAMPLE_FMT_S16;
+    c->sample_fmt = sample_fmt;
 //    c->bit_rate = 64000;
     c->sample_rate = 48000;
     c->channels    = g_audioChannels;
@@ -649,10 +650,18 @@ int main(int argc, char *argv[])
             break;
         case 's':
             g_audioSampleDepth = atoi(optarg);
-            if (g_audioSampleDepth != 16 && g_audioSampleDepth != 32) {
-                fprintf(
-                    stderr,
-                    "Invalid argument: Audio Sample Depth must be either 16 bits or 32 bits\n");
+            switch (g_audioSampleDepth) {
+            case 16:
+                sample_fmt = AV_SAMPLE_FMT_S16;
+                break;
+            case 32:
+                sample_fmt = AV_SAMPLE_FMT_S32;
+                break;
+            default:
+                fprintf(stderr,
+                        "Invalid argument:"
+                        " Audio Sample Depth must be either 16 bits"
+                        " or 32 bits\n");
                 goto bail;
             }
             break;
@@ -815,7 +824,7 @@ int main(int argc, char *argv[])
     snprintf(oc->filename, sizeof(oc->filename), "%s", g_videoOutputFile);
 
     fmt->video_codec = (pix == bmdFormat8BitYUV ? AV_CODEC_ID_RAWVIDEO : AV_CODEC_ID_V210);
-    fmt->audio_codec = AV_CODEC_ID_PCM_S16LE;
+    fmt->audio_codec = (sample_fmt == AV_SAMPLE_FMT_S16 ? AV_CODEC_ID_PCM_S16LE : AV_CODEC_ID_PCM_S32LE);
 
     video_st = add_video_stream(oc, fmt->video_codec);
     audio_st = add_audio_stream(oc, fmt->audio_codec);
