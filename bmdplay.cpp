@@ -765,7 +765,8 @@ void Player::WriteNextAudioSamples()
 HRESULT Player::ScheduledFrameCompleted(IDeckLinkVideoFrame *completedFrame,
                                         BMDOutputFrameCompletionResult result)
 {
-    ScheduleNextFrame(false);
+    if (fill_me)
+        ScheduleNextFrame(false);
     return S_OK;
 }
 
