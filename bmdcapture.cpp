@@ -875,6 +875,7 @@ int main(int argc, char *argv[])
     pthread_mutex_lock(&sleepMutex);
     pthread_cond_wait(&sleepCond, &sleepMutex);
     pthread_mutex_unlock(&sleepMutex);
+    deckLinkInput->StopStreams();
     fprintf(stderr, "Stopping Capture\n");
 
 bail:
