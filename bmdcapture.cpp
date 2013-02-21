@@ -591,12 +591,8 @@ static void *push_packet(void *ctx)
     AVPacket pkt;
     int ret;
 
-    while (avpacket_queue_get(&queue, &pkt, 1)) {
-        pkt.destruct = NULL;
+    while (avpacket_queue_get(&queue, &pkt, 1))
         av_interleaved_write_frame(s, &pkt);
-        av_destruct_packet(&pkt);
-        av_free_packet(&pkt);
-    }
 
     return NULL;
 }
