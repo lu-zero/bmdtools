@@ -186,7 +186,6 @@ static unsigned long long avpacket_queue_size(AVPacketQueue *q)
     return size;
 }
 
-AVFrame *picture;
 AVOutputFormat *fmt = NULL;
 AVFormatContext *oc;
 AVStream *audio_st, *video_st;
@@ -281,7 +280,6 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
         fprintf(stderr, "could not open codec\n");
         exit(1);
     }
-    picture = avcodec_alloc_frame();
 
     return st;
 }
@@ -351,9 +349,6 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
                         (double)qsize / 1024 / 1024);
             }
             videoFrame->GetBytes(&frameBytes);
-            avpicture_fill((AVPicture *)picture, (uint8_t *)frameBytes,
-                           pix_fmt,
-                           videoFrame->GetWidth(), videoFrame->GetHeight());
             videoFrame->GetStreamTime(&frameTime, &frameDuration,
                                       video_st->time_base.den);
             pkt.pts      = pkt.dts = frameTime / video_st->time_base.num;
