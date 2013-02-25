@@ -368,10 +368,6 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         }
 //        frameCount++;
 
-        if (g_maxFrames > 0 && frameCount >= g_maxFrames ||
-            avpacket_queue_size(&queue) > g_memoryLimit) {
-            pthread_cond_signal(&sleepCond);
-        }
     }
 
     // Handle Audio Frame
@@ -591,8 +587,13 @@ static void *push_packet(void *ctx)
     AVPacket pkt;
     int ret;
 
-    while (avpacket_queue_get(&queue, &pkt, 1))
+    while (avpacket_queue_get(&queue, &pkt, 1)) {
         av_interleaved_write_frame(s, &pkt);
+        if (g_maxFrames > 0 && frameCount >= g_maxFrames ||
+            avpacket_queue_size(&queue) > g_memoryLimit) {
+            pthread_cond_signal(&sleepCond);
+        }
+    }
 
     return NULL;
 }
@@ -868,6 +869,7 @@ int main(int argc, char *argv[])
     pthread_mutex_unlock(&sleepMutex);
     deckLinkInput->StopStreams();
     fprintf(stderr, "Stopping Capture\n");
+    avpacket_queue_end(&queue);
 
 bail:
     if (displayModeIterator != NULL) {
