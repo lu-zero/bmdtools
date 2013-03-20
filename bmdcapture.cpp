@@ -38,6 +38,8 @@
 #include "Capture.h"
 extern "C" {
 #include "libavformat/avformat.h"
+
+#include <CoreFoundation/CoreFoundation.h>
 }
 
 pthread_mutex_t sleepMutex;
@@ -440,8 +442,9 @@ void print_output_modes(IDeckLink *deckLink)
     printf("Supported video output display modes and pixel formats:\n");
     while (displayModeIterator->Next(&displayMode) == S_OK) {
         char *displayModeString = NULL;
+        CFStringRef str;
 
-        result = displayMode->GetName((const char **)&displayModeString);
+        result = displayMode->GetName(&str);
         if (result == S_OK) {
             char modeName[64];
             int modeWidth;
@@ -455,10 +458,10 @@ void print_output_modes(IDeckLink *deckLink)
             modeHeight = displayMode->GetHeight();
             displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
             printf("        %2d:   %-20s \t %d x %d \t %7g FPS\n",
-                   displayModeCount++, displayModeString, modeWidth, modeHeight,
+                   displayModeCount++, CFStringGetCStringPtr(str, kCFStringEncodingASCII), modeWidth, modeHeight,
                    (double)frameRateScale / (double)frameRateDuration);
 
-            free(displayModeString);
+//            free(displayModeString);
         }
         // Release the IDeckLinkDisplayMode object to prevent a leak
         displayMode->Release();
@@ -499,7 +502,7 @@ int usage(int status)
 
     // Enumerate all cards in this system
     while (deckLinkIterator->Next(&deckLink) == S_OK) {
-        char *deviceNameString = NULL;
+        const char *deviceNameString = NULL;
 
         // Increment the total number of DeckLink cards found
         numDevices++;
@@ -507,13 +510,16 @@ int usage(int status)
             printf("\n\n");
         }
 
+        CFStringRef str;
+
         // *** Print the model name of the DeckLink card
-        result = deckLink->GetModelName((const char **)&deviceNameString);
+        result = deckLink->GetModelName(&str);
+        deviceNameString = CFStringGetCStringPtr(str, kCFStringEncodingASCII);
         if (result == S_OK) {
             printf("=============== %s (-C %d )===============\n\n",
                    deviceNameString,
                    numDevices - 1);
-            free(deviceNameString);
+            //free(deviceNameString);
         }
 
         print_output_modes(deckLink);

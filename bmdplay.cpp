@@ -287,8 +287,8 @@ void print_output_modes(IDeckLink *deckLink)
     printf("Supported video output display modes and pixel formats:\n");
     while (displayModeIterator->Next(&displayMode) == S_OK) {
         char *displayModeString = NULL;
-
-        result = displayMode->GetName((const char **)&displayModeString);
+        CFStringRef str;
+        result = displayMode->GetName(&str);
         if (result == S_OK) {
             char modeName[64];
             int modeWidth;
@@ -302,7 +302,7 @@ void print_output_modes(IDeckLink *deckLink)
             modeHeight = displayMode->GetHeight();
             displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
             printf("        %2d:   %-20s \t %d x %d \t %7g FPS\n",
-                   displayModeCount++, displayModeString, modeWidth, modeHeight,
+                   displayModeCount++, CFStringGetCStringPtr(str, kCFStringEncodingASCII), modeWidth, modeHeight,
                    (double)frameRateScale / (double)frameRateDuration);
 
             free(displayModeString);
@@ -344,19 +344,19 @@ int usage(int status)
     // Enumerate all cards in this system
     while (deckLinkIterator->Next(&deckLink) == S_OK) {
         char *deviceNameString = NULL;
-
+        CFStringRef str;
         // Increment the total number of DeckLink cards found
         numDevices++;
         if (numDevices > 1)
             printf("\n\n");
 
         // *** Print the model name of the DeckLink card
-        result = deckLink->GetModelName((const char **)&deviceNameString);
+        result = deckLink->GetModelName(&str);
         if (result == S_OK) {
             printf("=============== %s (-C %d )===============\n\n",
-                   deviceNameString,
+                   CFStringGetCStringPtr(str, kCFStringEncodingASCII),
                    numDevices - 1);
-            free(deviceNameString);
+//            free(deviceNameString);
         }
 
         print_output_modes(deckLink);
@@ -611,10 +611,11 @@ IDeckLinkDisplayMode *Player::GetDisplayModeByIndex(int selectedIndex)
         goto bail;
     while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK) {
         const char *modeName;
+        CFStringRef str;
 
-        if (deckLinkDisplayMode->GetName(&modeName) == S_OK) {
+        if (deckLinkDisplayMode->GetName(&str) == S_OK) {
             if (index == selectedIndex) {
-                printf("Selected mode: %s\n\n\n", modeName);
+                printf("Selected mode: %s\n\n\n", CFStringGetCStringPtr(str, kCFStringEncodingASCII));
                 selectedMode = deckLinkDisplayMode;
                 goto bail;
             }
