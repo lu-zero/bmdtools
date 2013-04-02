@@ -439,9 +439,9 @@ void print_output_modes(IDeckLink *deckLink)
     // List all supported output display modes
     printf("Supported video output display modes and pixel formats:\n");
     while (displayModeIterator->Next(&displayMode) == S_OK) {
-        char *displayModeString = NULL;
+        BMDProbeString str;
 
-        result = displayMode->GetName((const char **)&displayModeString);
+        result = displayMode->GetName(&str);
         if (result == S_OK) {
             char modeName[64];
             int modeWidth;
@@ -455,10 +455,10 @@ void print_output_modes(IDeckLink *deckLink)
             modeHeight = displayMode->GetHeight();
             displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
             printf("        %2d:   %-20s \t %d x %d \t %7g FPS\n",
-                   displayModeCount++, displayModeString, modeWidth, modeHeight,
+                   displayModeCount++, ToStr(str), modeWidth, modeHeight,
                    (double)frameRateScale / (double)frameRateDuration);
 
-            free(displayModeString);
+            FreeStr(str);
         }
         // Release the IDeckLinkDisplayMode object to prevent a leak
         displayMode->Release();
@@ -499,8 +499,7 @@ int usage(int status)
 
     // Enumerate all cards in this system
     while (deckLinkIterator->Next(&deckLink) == S_OK) {
-        char *deviceNameString = NULL;
-
+        BMDProbeString str;
         // Increment the total number of DeckLink cards found
         numDevices++;
         if (numDevices > 1) {
@@ -508,12 +507,12 @@ int usage(int status)
         }
 
         // *** Print the model name of the DeckLink card
-        result = deckLink->GetModelName((const char **)&deviceNameString);
+        result = deckLink->GetModelName(&str);
         if (result == S_OK) {
-            printf("=============== %s (-C %d )===============\n\n",
-                   deviceNameString,
+            printf("-> %s (-C %d )\n\n",
+                   ToStr(str),
                    numDevices - 1);
-            free(deviceNameString);
+            FreeStr(str);
         }
 
         print_output_modes(deckLink);

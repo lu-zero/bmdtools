@@ -26,19 +26,27 @@
 
 CXX=g++
 SDK_PATH=../../include
-CFLAGS=-Wno-multichar -I $(SDK_PATH) -fno-rtti -D__STDC_CONSTANT_MACROS -g
+
+SYS=`uname -s`
+
+CXXFLAGS=-Wno-multichar -I $(SDK_PATH) -fno-rtti -D__STDC_CONSTANT_MACROS -g
 LDFLAGS=-lm -ldl -lpthread `pkg-config --libs libavformat libswscale`
+
+ifeq ($(SYS),Darwin)
+CXXFLAGS+= -framework CoreFoundation -DHAVE_CFSTRING
+LDFLAGS+= -framework CoreFoundation
+endif
 
 all: bmdcapture bmdplay bmdgenlock
 
 bmdcapture: bmdcapture.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
-	$(CXX) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
 bmdplay: bmdplay.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
-	$(CXX) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
 bmdgenlock: genlock.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
-	$(CXX) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
 
 clean:

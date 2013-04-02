@@ -20,6 +20,11 @@ DeckLink SDK and then issue "make". If you have Libav and pkg-config installed
 it will build fine. Make sure you are using a quite recent Libav otherwise it
 will not build.
 
+ -- What if I'm using MacOSX ?
+
+Pass SDK=Darwin to make, it should work, please DO complay to Blackmagic Design
+for having non-matching apis cross operating systems.
+
  -- How to use?
 
 ./bmdcapture -C 1 -m 2 -I 1 -F nut -f pipe:1 | avconv -y -i - <your options here>
