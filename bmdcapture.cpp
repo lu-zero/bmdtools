@@ -317,6 +317,9 @@ ULONG DeckLinkCaptureDelegate::Release(void)
     return (ULONG)m_refCount;
 }
 
+int64_t initial_video_pts = AV_NOPTS_VALUE;
+int64_t initial_audio_pts = AV_NOPTS_VALUE;
+
 HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
     IDeckLinkVideoInputFrame *videoFrame, IDeckLinkAudioInputPacket *audioFrame)
 {
@@ -352,6 +355,13 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
             videoFrame->GetStreamTime(&frameTime, &frameDuration,
                                       video_st->time_base.den);
             pkt.pts      = pkt.dts = frameTime / video_st->time_base.num;
+
+            if (initial_video_pts == AV_NOPTS_VALUE) {
+                initial_video_pts = pkt.pts;
+            }
+
+            pkt.pts -= initial_video_pts;
+
             pkt.duration = frameDuration;
             //To be made sure it still applies
             pkt.flags       |= AV_PKT_FLAG_KEY;
@@ -384,6 +394,13 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         audioFrame->GetBytes(&audioFrameBytes);
         audioFrame->GetPacketTime(&audio_pts, audio_st->time_base.den);
         pkt.dts = pkt.pts = audio_pts / audio_st->time_base.num;
+
+        if (initial_audio_pts == AV_NOPTS_VALUE) {
+            initial_audio_pts = pkt.pts;
+        }
+
+        pkt.pts -= initial_audio_pts;
+
         //fprintf(stderr,"Audio Frame size %d ts %d\n", pkt.size, pkt.pts);
         pkt.flags       |= AV_PKT_FLAG_KEY;
         pkt.stream_index = audio_st->index;
