@@ -582,13 +582,16 @@ int usage(int status)
         "    -M <memlimit>        Maximum queue size in GB (default is 1 GB)\n"
         "    -C <num>             number of card to be used\n"
         "    -A <audio-in>        Audio input:\n"
-        "                         1: Analog (RCA)\n"
-        "                         2: Embedded audio (HDMI/SDI)\n"
+        "                         1: Analog (RCA or XLR)\n"
+        "                         2: Digital Audio (AES/EBU)\n"
+        "                         3: Embedded Audio (HDMI/SDI)\n"
         "    -V <video-in>        Video input:\n"
         "                         1: Composite\n"
-        "                         2: Component\n"
-        "                         3: HDMI\n"
-        "                         4: SDI\n"
+        "                         2: S-Video\n"
+        "                         3: Component\n"
+        "                         4: HDMI\n"
+        "                         5: SDI\n"
+        "                         6: Optical SDI\n"
         "Capture video and audio to a file. Raw video and audio can be sent to a pipe to avconv or vlc e.g.:\n"
         "\n"
         "    bmdcapture -m 2 -A 1 -V 1 -F nut -f pipe:1\n\n\n"
@@ -748,6 +751,9 @@ int main(int argc, char *argv[])
         result = DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionAnalog);
         break;
     case 2:
+        result = DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionAESEBU);
+        break;
+    case 3:
         result = DECKLINK_SET_AUDIO_CONNECTION(bmdAudioConnectionEmbedded);
         break;
     default:
@@ -765,13 +771,19 @@ int main(int argc, char *argv[])
         result = DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionComposite);
         break;
     case 2:
-        result = DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionComponent);
+        result = DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionSVideo);
         break;
     case 3:
-        result = DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionHDMI);
+        result = DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionComponent);
         break;
     case 4:
+        result = DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionHDMI);
+        break;
+    case 5:
         result = DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionSDI);
+        break;
+    case 6:
+        result = DECKLINK_SET_VIDEO_CONNECTION(bmdVideoConnectionOpticalSDI);
         break;
     default:
         // do not change it
