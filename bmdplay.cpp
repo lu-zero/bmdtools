@@ -480,7 +480,7 @@ int main(int argc, char *argv[])
 
     avformat_close_input(&ic);
 
-    fprintf(stderr, "video %d audio %d", videoqueue.nb_packets,
+    fprintf(stderr, "video %ld audio %ld", videoqueue.nb_packets,
             audioqueue.nb_packets);
 
     return ret;
