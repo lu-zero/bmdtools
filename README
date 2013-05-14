@@ -22,7 +22,7 @@ will not build.
 
  -- What if I'm using MacOSX ?
 
-Pass SDK=Darwin to make, it should work, please DO complay to Blackmagic Design
+Pass SYS=Darwin to make, it should work, please DO complain to Blackmagic Design
 for having non-matching apis cross operating systems.
 
  -- How to use?
