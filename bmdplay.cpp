@@ -60,10 +60,6 @@ AVStream *video_st = NULL;
 static enum PixelFormat pix_fmt = PIX_FMT_UYVY422;
 static BMDPixelFormat pix       = bmdFormat8BitYUV;
 
-DECLARE_ALIGNED(16, uint8_t,
-                audio_buffer)[(AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2];
-int data_size = sizeof(audio_buffer);
-int offset    = 0;
 int buffer    = 2000 * 1000;
 
 const unsigned long kAudioWaterlevel = 48000 / 4;      /* small */
@@ -678,8 +674,6 @@ void Player::StartRunning(int videomode)
                                             audio_st->codec->channels,
                                             bmdAudioOutputStreamTimestamped) !=
         S_OK) {
-/*    bmdAudioOutputStreamTimestamped
- *  bmdAudioOutputStreamContinuous */
         fprintf(stderr, "Failed to enable audio output\n");
         return;
     }
@@ -757,6 +751,8 @@ void Player::WriteNextAudioSamples()
     uint32_t samplesWritten = 0;
     AVPacket pkt            = { 0 };
     unsigned int bufferedSamples;
+    int got_frame = 0;
+    int i;
     int bytes_per_sample =
         av_get_bytes_per_sample(audio_st->codec->sample_fmt) *
         audio_st->codec->channels;
@@ -772,19 +768,13 @@ void Player::WriteNextAudioSamples()
         return;
     }
 
-    data_size = sizeof(audio_buffer);
-    avcodec_decode_audio3(audio_st->codec,
-                          (int16_t *)audio_buffer, &data_size, &pkt);
-    av_free_packet(&pkt);
-
-    if (m_deckLinkOutput->ScheduleAudioSamples(audio_buffer + offset,
-                                               data_size / bytes_per_sample,
+    if (m_deckLinkOutput->ScheduleAudioSamples(pkt.data,
+                                               pkt.size / bytes_per_sample,
                                                pkt.pts, 48000,
                                                &samplesWritten) != S_OK)
         fprintf(stderr, "error writing audio sample\n");
-//    offset = (samplesWritten + offset) % data_size;
 
-    //fprintf(stderr, "Buffer %d, written %d, available %d offset %d\n", bufferedSamples, samplesWritten, data_size-offset, offset);//--------->
+    av_free_packet(&pkt);
 }
 
 /************************* DeckLink API Delegate Methods *****************************/
