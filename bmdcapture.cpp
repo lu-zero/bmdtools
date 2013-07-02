@@ -379,13 +379,14 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
             no_video = 0;
         }
 
-        pkt.pts      = pkt.dts = frameTime / video_st->time_base.num;
+        pkt.pts = frameTime / video_st->time_base.num;
 
         if (initial_video_pts == AV_NOPTS_VALUE) {
             initial_video_pts = pkt.pts;
         }
 
         pkt.pts -= initial_video_pts;
+        pkt.dts = pkt.pts;
 
         pkt.duration = frameDuration;
         //To be made sure it still applies
@@ -414,13 +415,14 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
                    g_audioChannels * (g_audioSampleDepth / 8);
         audioFrame->GetBytes(&audioFrameBytes);
         audioFrame->GetPacketTime(&audio_pts, audio_st->time_base.den);
-        pkt.dts = pkt.pts = audio_pts / audio_st->time_base.num;
+        pkt.pts = audio_pts / audio_st->time_base.num;
 
         if (initial_audio_pts == AV_NOPTS_VALUE) {
             initial_audio_pts = pkt.pts;
         }
 
         pkt.pts -= initial_audio_pts;
+        pkt.dts = pkt.pts;
 
         //fprintf(stderr,"Audio Frame size %d ts %d\n", pkt.size, pkt.pts);
         pkt.flags       |= AV_PKT_FLAG_KEY;
