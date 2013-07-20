@@ -30,7 +30,7 @@ SDK_PATH=../../include
 SYS=`uname -s`
 
 CXXFLAGS=-Wno-multichar -I $(SDK_PATH) -fno-rtti -D__STDC_CONSTANT_MACROS -g
-LDFLAGS=-lm -ldl -lpthread `pkg-config --libs libavformat libswscale`
+LDFLAGS=-lm -ldl -lpthread `pkg-config --libs libavcodec libavformat libswscale`
 
 ifeq ($(SYS),Darwin)
 CXXFLAGS+= -framework CoreFoundation -DHAVE_CFSTRING
