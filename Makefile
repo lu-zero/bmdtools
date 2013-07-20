@@ -24,20 +24,30 @@
 #** DEALINGS IN THE SOFTWARE.
 #** -LICENSE-END-
 
-CXX=g++
-SDK_PATH=../../include
+prefix ?= /usr
+bindir ?= $(prefix)/bin
+
+CXX = g++
+SDK_PATH = ../../include
 
 SYS=`uname -s`
 
-CXXFLAGS=-Wno-multichar -I $(SDK_PATH) -fno-rtti -D__STDC_CONSTANT_MACROS -g
-LDFLAGS=-lm -ldl -lpthread `pkg-config --libs libavcodec libavformat libswscale`
+PKG_DEPS = libavcodec libavformat libswscale
+
+CXXFLAGS = `pkg-config --cflags $(PKG_DEPS)` -D__STDC_CONSTANT_MACROS
+LDFLAGS  = `pkg-config --libs $(PKG_DEPS)`
+
+CXXFLAGS+= -Wno-multichar -I $(SDK_PATH) -fno-rtti -g
+LDFLAGS += -lm -ldl -lpthread
 
 ifeq ($(SYS),Darwin)
 CXXFLAGS+= -framework CoreFoundation -DHAVE_CFSTRING
-LDFLAGS+= -framework CoreFoundation
+LDFLAGS += -framework CoreFoundation
 endif
 
-all: bmdcapture bmdplay bmdgenlock
+PROGRAMS = bmdcapture bmdplay bmdgenlock
+
+all: $(PROGRAMS)
 
 bmdcapture: bmdcapture.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
@@ -48,6 +58,9 @@ bmdplay: bmdplay.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
 bmdgenlock: genlock.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
-
 clean:
-	-rm -f bmdcapture bmdplay
+	-rm -f $(PROGRAMS)
+
+install: all
+	mkdir -p $(DESTDIR)/$(bindir)
+	cp $(PROGRAMS) $(DESTDIR)/$(bindir)
