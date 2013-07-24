@@ -651,6 +651,7 @@ int main(int argc, char *argv[])
     int ch;
     BMDPixelFormat pix = bmdFormat8BitYUV;
     HRESULT result;
+    pthread_t th;
 
     pthread_mutex_init(&sleepMutex, NULL);
     pthread_cond_init(&sleepCond, NULL);
@@ -861,6 +862,29 @@ int main(int argc, char *argv[])
         displayMode->Release();
     }
 
+    if (selectedDisplayMode < 0) {
+        fprintf(stderr, "Invalid mode %d specified\n", g_videoModeIndex);
+        goto bail;
+    }
+
+    result = deckLinkInput->EnableVideoInput(selectedDisplayMode, pix, 0);
+    if (result != S_OK) {
+        fprintf(stderr,
+                "Failed to enable video input. Is another application using "
+                "the card?\n");
+        goto bail;
+    }
+
+    result = deckLinkInput->EnableAudioInput(bmdAudioSampleRate48kHz,
+                                             g_audioSampleDepth,
+                                             g_audioChannels);
+    if (result != S_OK) {
+        fprintf(stderr,
+                "Failed to enable audio input. Is another application using "
+                "the card?\n");
+        goto bail;
+    }
+
     oc          = avformat_alloc_context();
     oc->oformat = fmt;
 
@@ -879,27 +903,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (selectedDisplayMode < 0) {
-        fprintf(stderr, "Invalid mode %d specified\n", g_videoModeIndex);
-        goto bail;
-    }
-
-    result = deckLinkInput->EnableVideoInput(selectedDisplayMode, pix, 0);
-    if (result != S_OK) {
-        fprintf(
-            stderr,
-            "Failed to enable video input. Is another application using the card?\n");
-        goto bail;
-    }
-
-    result =
-        deckLinkInput->EnableAudioInput(bmdAudioSampleRate48kHz,
-                                        g_audioSampleDepth,
-                                        g_audioChannels);
-    if (result != S_OK) {
-        goto bail;
-    }
     avformat_write_header(oc, NULL);
+    avpacket_queue_init(&queue);
 
     result = deckLinkInput->StartStreams();
     if (result != S_OK) {
@@ -907,9 +912,6 @@ int main(int argc, char *argv[])
     }
     // All Okay.
     exitStatus = 0;
-
-    avpacket_queue_init(&queue);
-    pthread_t th;
 
     if (pthread_create(&th, NULL, push_packet, oc))
         goto bail;
