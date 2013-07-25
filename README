@@ -54,3 +54,7 @@ avconv -vsync 1 -i <source> -c:v rawvideo -pix_fmt uyvy422 -c:a pcm_s16le -ar 48
   -- Contact
 
 You can contact me either at lu_zero@gentoo.org or luca.barbato@gmail.com
+
+  -- Paid Support
+
+Paid support is offered, contact info@luminem.it for details.
