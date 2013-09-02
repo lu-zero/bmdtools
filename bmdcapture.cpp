@@ -57,6 +57,7 @@ static int g_audioSampleDepth    = 16;
 const char *g_videoOutputFile    = NULL;
 const char *g_audioOutputFile    = NULL;
 static int g_maxFrames           = -1;
+static int serial_fd             = -1;
 bool g_verbose                   = false;
 unsigned long long g_memoryLimit = 1024 * 1024 * 1024;            // 1GByte(>50 sec)
 
@@ -188,7 +189,7 @@ static unsigned long long avpacket_queue_size(AVPacketQueue *q)
 
 AVOutputFormat *fmt = NULL;
 AVFormatContext *oc;
-AVStream *audio_st, *video_st;
+AVStream *audio_st, *video_st, *data_st;
 BMDTimeValue frameRateDuration, frameRateScale;
 
 static AVStream *add_audio_stream(AVFormatContext *oc, enum AVCodecID codec_id)
@@ -280,6 +281,41 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
         fprintf(stderr, "could not open codec\n");
         exit(1);
     }
+
+    return st;
+}
+
+static AVStream *add_data_stream(AVFormatContext *oc, enum AVCodecID codec_id)
+{
+    AVCodec *codec;
+    AVCodecContext *c;
+    AVStream *st;
+
+    st = avformat_new_stream(oc, NULL);
+    if (!st) {
+        fprintf(stderr, "Could not alloc stream\n");
+        exit(1);
+    }
+
+    c = st->codec;
+    c->codec_id = codec_id;
+    c->codec_type = AVMEDIA_TYPE_DATA;
+
+    displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
+    c->time_base.den = frameRateScale;
+    c->time_base.num = frameRateDuration;
+
+    // some formats want stream headers to be separate
+    if(oc->oformat->flags & AVFMT_GLOBALHEADER)
+        c->flags |= CODEC_FLAG_GLOBAL_HEADER;
+
+    /* find the video encoder */
+    codec = (AVCodec*)av_malloc(sizeof(AVCodec));
+    memset(codec, 0, sizeof(AVCodec));
+    codec->id = c->codec_id;
+
+    /* open the codec */
+    c->codec = codec;
 
     return st;
 }
@@ -437,6 +473,23 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
  *      } */
         avpacket_queue_put(&queue, &pkt);
     }
+
+    if (serial_fd > 0) {
+        AVPacket pkt;
+        char line[8] = {0};
+        int count = read(serial_fd, line, 7);
+        if (count > 0)
+            fprintf(stderr, "read %d bytes: %s  \n", count, line);
+	else line[0] = ' ';
+        av_init_packet(&pkt);
+        pkt.flags |= AV_PKT_FLAG_KEY;
+        pkt.stream_index= data_st->index;
+        pkt.data = (uint8_t*)line;
+        pkt.size = 7;
+        pkt.pts = pkt.dts = frameTime/video_st->time_base.num;
+        avpacket_queue_put(&queue, &pkt);
+    }
+
     return S_OK;
 }
 
@@ -604,6 +657,7 @@ int usage(int status)
         "    -n <frames>          Number of frames to capture (default is unlimited)\n"
         "    -M <memlimit>        Maximum queue size in GB (default is 1 GB)\n"
         "    -C <num>             number of card to be used\n"
+        "    -S <serial_device>   data input serial\n"
         "    -A <audio-in>        Audio input:\n"
         "                         1: Analog (RCA or XLR)\n"
         "                         2: Embedded Audio (HDMI/SDI)\n"
@@ -737,6 +791,9 @@ int main(int argc, char *argv[])
             break;
         case 'C':
             camera = atoi(optarg);
+            break;
+        case 'S':
+            serial_fd = open(optarg, O_RDWR | O_NONBLOCK);
             break;
         case '?':
         case 'h':
@@ -895,6 +952,9 @@ int main(int argc, char *argv[])
 
     video_st = add_video_stream(oc, fmt->video_codec);
     audio_st = add_audio_stream(oc, fmt->audio_codec);
+
+    if (serial_fd > 0)
+        data_st = add_data_stream(oc, AV_CODEC_ID_TEXT);
 
     if (!(fmt->flags & AVFMT_NOFILE)) {
         if (avio_open(&oc->pb, oc->filename, AVIO_FLAG_WRITE) < 0) {

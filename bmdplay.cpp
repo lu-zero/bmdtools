@@ -60,7 +60,8 @@ AVStream *video_st = NULL;
 static enum PixelFormat pix_fmt = PIX_FMT_UYVY422;
 static BMDPixelFormat pix       = bmdFormat8BitYUV;
 
-int buffer    = 2000 * 1000;
+static int buffer    = 2000 * 1000;
+static int serial_fd = -1;
 
 const unsigned long kAudioWaterlevel = 48000 / 4;      /* small */
 
@@ -75,6 +76,7 @@ typedef struct PacketQueue {
 
 PacketQueue audioqueue;
 PacketQueue videoqueue;
+PacketQueue dataqueue;
 struct SwsContext *sws;
 
 static int packet_queue_put(PacketQueue *q, AVPacket *pkt);
@@ -236,6 +238,9 @@ void *fill_queues(void *unused)
                 pkt.pts -= first_audio_pts;
             }
             packet_queue_put(&audioqueue, &pkt);
+            break;
+        case AVMEDIA_TYPE_DATA:
+	    packet_queue_put(&dataqueue, &pkt);
             break;
         }
 /*	    while (videoqueue.nb_packets>10)
@@ -424,6 +429,9 @@ int main(int argc, char *argv[])
         case 'b':
             buffer = atoi(optarg) * 1000;
             break;
+        case 'S':
+            serial_fd = open(optarg, O_RDWR | O_NONBLOCK);
+            break;
         case '?':
         case 'h':
             return usage(0);
@@ -580,6 +588,7 @@ bool Player::Init(int videomode, int connection, int camera)
 
     packet_queue_init(&audioqueue);
     packet_queue_init(&videoqueue);
+    packet_queue_init(&dataqueue);
     pthread_t th;
     pthread_create(&th, NULL, fill_queues, NULL);
 
@@ -710,6 +719,14 @@ void Player::ScheduleNextFrame(bool prerolling)
 {
     AVPacket pkt;
     AVPicture picture;
+
+    if (serial_fd > 0 && packet_queue_get(&dataqueue, &pkt, 0)) {
+        if (pkt.data[0] != ' '){
+            fprintf(stderr,"written %.*s  \n", pkt.size, pkt.data);
+            write(serial_fd, pkt.data, pkt.size);
+        }
+        av_free_packet(&pkt);
+    }
 
     if (packet_queue_get(&videoqueue, &pkt, 1) < 0)
         return;
