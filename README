@@ -1,33 +1,41 @@
+## BlackMagic devices tools
 
- -- What is it?
+Initially developed as an example integration between libavformat and the
+bmd sdk, it ended up being a set of useful tools to use the BlackMagic Devices
+decklink cards on Linux and MacOSX.
 
-It started as a quite simple A/V capture based on ffmpeg for Blackmagic Design
-DeckLink systems.
+Thanks to TodoStreaming sponsoring its early development.
 
-It wasn't and isn't exactly feature complete and had been used as testbed to
-develop a crude avdevice for ffmpeg and then kept around since it comes handy
-in many occasions since the avdevice has it's share of issues I don't have
-time nor will to debug right now.
-
-It had been improved thanks to TodoStreaming support to be even more useful
-paired with a simple player that could be used as example for the output side
-as well.
-
- -- How to build?
+## Build instructions
 
 In order to build it just clone/unpack this on your Sample directory from the
 DeckLink SDK and then issue "make". If you have Libav and pkg-config installed
 it will build fine. Make sure you are using a quite recent Libav otherwise it
 will not build.
 
- -- What if I'm using MacOSX ?
+You can build it out of the Sample tree by issuing
 
-Pass SYS=Darwin to make, it should work, please DO complain to Blackmagic Design
-for having non-matching apis cross operating systems.
+```sh
+make SDK_PATH=/path/to/the/bmd/include
+```
 
- -- How to use?
+### MacOSX Support
 
+Pass SYS=Darwin to make, it should work, please DO complain to BlackMagic
+Design for having non-matching apis cross operating systems.
+
+### Windows Support
+
+The tools do not build on Windows currently, supporting it would either
+require a working widl support in mingw64 or access to the native tools.
+
+Patch and/or sponsorship welcome.
+
+## Usage
+
+```sh
 ./bmdcapture -C 1 -m 2 -I 1 -F nut -f pipe:1 | avconv -y -i - <your options here>
+```
 
 -I switch from the default (HDMI) source to Analog (both audio and video)
 
@@ -43,18 +51,21 @@ NOTE: make sure you are processing frames capture in real time or be
 prepared to end up using all your memory quite quickly, HD raw data
 fills up memory quickly.
 
+```sh
 avconv -vsync 1 -i <source> -c:v rawvideo -pix_fmt uyvy422 -c:a pcm_s16le -ar 48000 -f nut - | ./bmdplay -f pipe:0
+```
 
-[TBD]
+## Support
 
--C select the capture device if more than one is present.
+The github [issue tracker](https://github.com/lu-zero/bmdtools/issues) can
+be used to track bugs and feature requests.
 
--f input file name, any libavformat compatible url is supported.
+### Contact
 
-  -- Contact
+You can directly contact me either at
 
-You can contact me either at lu_zero@gentoo.org or luca.barbato@gmail.com
+lu_zero@gentoo.org or luca.barbato@luminem.it
 
-  -- Paid Support
+### Paid Support
 
 Paid support is offered, contact info@luminem.it for details.
