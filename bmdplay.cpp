@@ -773,6 +773,7 @@ void Player::WriteNextAudioSamples()
     int bytes_per_sample =
         av_get_bytes_per_sample(audio_st->codec->sample_fmt) *
         audio_st->codec->channels;
+    int samples, off = 0;
 
     m_deckLinkOutput->GetBufferedAudioSampleFrameCount(&bufferedSamples);
 
@@ -785,11 +786,18 @@ void Player::WriteNextAudioSamples()
         return;
     }
 
-    if (m_deckLinkOutput->ScheduleAudioSamples(pkt.data,
-                                               pkt.size / bytes_per_sample,
-                                               pkt.pts, 48000,
-                                               &samplesWritten) != S_OK)
-        fprintf(stderr, "error writing audio sample\n");
+    samples = pkt.size / bytes_per_sample;
+
+    do {
+        if (m_deckLinkOutput->ScheduleAudioSamples(pkt.data +
+                                                   off * bytes_per_sample,
+                                                   samples,
+                                                   pkt.pts + off, 48000,
+                                                   &samplesWritten) != S_OK)
+            fprintf(stderr, "error writing audio sample\n");
+        samples -= samplesWritten;
+        off     += samplesWritten;
+    } while (samples > 0);
 
     av_free_packet(&pkt);
 }
