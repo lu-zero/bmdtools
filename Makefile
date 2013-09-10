@@ -32,7 +32,7 @@ SDK_PATH = ../../include
 
 SYS=`uname -s`
 
-PKG_DEPS = libavcodec libavformat libswscale
+PKG_DEPS = libavcodec libavformat libswscale libavutil
 
 CXXFLAGS = `pkg-config --cflags $(PKG_DEPS)` -D__STDC_CONSTANT_MACROS
 LDFLAGS  = `pkg-config --libs $(PKG_DEPS)`
