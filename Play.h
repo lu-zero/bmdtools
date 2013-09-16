@@ -51,7 +51,6 @@ protected:
 	unsigned long					m_totalFramesScheduled;
 
 	OutputSignal					m_outputSignal;
-	void*							m_audioBuffer;
 	unsigned long					m_audioBufferSampleLength;
 	unsigned long					m_audioBufferOffset;
 	unsigned long					m_audioChannelCount;

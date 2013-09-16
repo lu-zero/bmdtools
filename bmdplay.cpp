@@ -709,10 +709,6 @@ void Player::StopRunning()
     //
     m_deckLinkOutput->DisableAudioOutput();
     m_deckLinkOutput->DisableVideoOutput();
-
-    if (m_audioBuffer != NULL)
-        free(m_audioBuffer);
-    m_audioBuffer = NULL;
 }
 
 void Player::ScheduleNextFrame(bool prerolling)
