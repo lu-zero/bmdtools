@@ -206,6 +206,7 @@ void *fill_queues(void *unused)
     while (fill_me) {
         int err = av_read_frame(ic, &pkt);
         if (err) {
+            pthread_cond_signal(&sleepCond);
             return NULL;
         }
         if (videoqueue.nb_packets > 1000) {
@@ -243,9 +244,6 @@ void *fill_queues(void *unused)
 	    packet_queue_put(&dataqueue, &pkt);
             break;
         }
-/*	    while (videoqueue.nb_packets>10)
- *              usleep(30); */
-        //fprintf(stderr, "V %d A %d\n", videoqueue.nb_packets, audioqueue.nb_packets); //----->
     }
     return NULL;
 }
@@ -724,7 +722,7 @@ void Player::ScheduleNextFrame(bool prerolling)
         av_free_packet(&pkt);
     }
 
-    if (packet_queue_get(&videoqueue, &pkt, 1) < 0)
+    if (packet_queue_get(&videoqueue, &pkt, 0) < 0)
         return;
 
     IDeckLinkMutableVideoFrame *videoFrame;
@@ -776,11 +774,8 @@ void Player::WriteNextAudioSamples()
     if (bufferedSamples > kAudioWaterlevel)
         return;
 
-    if (!packet_queue_get(&audioqueue, &pkt, 0)) {
-        fprintf(stderr, "I'd quit now \n");
-        pthread_cond_signal(&sleepCond);
+    if (!packet_queue_get(&audioqueue, &pkt, 0))
         return;
-    }
 
     samples = pkt.size / bytes_per_sample;
 
