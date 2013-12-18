@@ -61,6 +61,7 @@ protected:
 
 	// Signal Generator Implementation
 	void			StartRunning (int videomode);
+	void			FillQueues ();
 	void			StopRunning ();
 	void			ScheduleNextFrame (bool prerolling);
 	void			WriteNextAudioSamples ();
@@ -82,7 +83,3 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE	RenderAudioSamples (bool preroll);
 };
 
-
-void	FillSine (void* audioBuffer, unsigned long samplesToWrite, unsigned long channels, unsigned long sampleDepth);
-void	FillColourBars (IDeckLinkVideoFrame* theFrame);
-void	FillBlack (IDeckLinkVideoFrame* theFrame);
