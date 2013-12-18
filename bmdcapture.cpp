@@ -486,7 +486,9 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         pkt.stream_index= data_st->index;
         pkt.data = (uint8_t*)line;
         pkt.size = 7;
-        pkt.pts = pkt.dts = frameTime/video_st->time_base.num;
+        pkt.pts = frameTime / video_st->time_base.num;
+        pkt.pts -= initial_video_pts;
+        pkt.dts = pkt.pts;
         avpacket_queue_put(&queue, &pkt);
     }
 
