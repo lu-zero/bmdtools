@@ -912,13 +912,15 @@ int main(int argc, char *argv[])
         result = deckLinkAttributes->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &supported);
         if (result == S_OK) {
             if(supported == true){
-                g_videoModeIndex = deckLinkAttributes->GetInt(BMDDeckLinkSupportsInputFormatDetection, &cfgid);
+                if(deckLinkAttributes->GetInt(BMDDeckLinkSupportsInputFormatDetection, &cfgid) == S_OK){         
+                    g_videoModeIndex = cfgid;
+                }
             } else { 
                 fprintf(stderr, "No video mode specified and this card does not support auto detection\n");
                 usage(0);
             }
         } else {
-            fprintf(stderr, "Unable to query Input Mode Detection Interface");
+            fprintf(stderr, "Unable to query Input Mode Detection Interface\n");
             goto bail;
         }
     }
