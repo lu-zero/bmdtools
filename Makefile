@@ -27,13 +27,13 @@
 prefix ?= /usr
 bindir ?= $(prefix)/bin
 
-CXX = g++
 SDK_PATH = ../../include
 
 SYS=`uname -s`
 
 PKG_DEPS = libavcodec libavformat libswscale libavutil
 
+CFLAGS   = `pkg-config --cflags $(PKG_DEPS)`
 CXXFLAGS = `pkg-config --cflags $(PKG_DEPS)` -D__STDC_CONSTANT_MACROS
 LDFLAGS  = `pkg-config --libs $(PKG_DEPS)`
 
@@ -47,19 +47,21 @@ endif
 
 PROGRAMS = bmdcapture bmdplay bmdgenlock
 
+OBJS = packet.o
+
 all: $(PROGRAMS)
 
 bmdcapture: bmdcapture.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
-bmdplay: bmdplay.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
+bmdplay: bmdplay.cpp packet.o $(SDK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
 bmdgenlock: genlock.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
 clean:
-	-rm -f $(PROGRAMS)
+	-rm -f $(PROGRAMS) $(OBJS)
 
 install: all
 	mkdir -p $(DESTDIR)/$(bindir)
