@@ -487,7 +487,9 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         pkt.stream_index= data_st->index;
         pkt.data = (uint8_t*)line;
         pkt.size = 7;
-        pkt.pts = pkt.dts = frameTime/video_st->time_base.num;
+        pkt.pts = frameTime / video_st->time_base.num;
+        pkt.pts -= initial_video_pts;
+        pkt.dts = pkt.pts;
         avpacket_queue_put(&queue, &pkt);
     }
 
@@ -912,10 +914,10 @@ int main(int argc, char *argv[])
         result = deckLinkAttributes->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &supported);
         if (result == S_OK) {
             if(supported == true){
-                if(deckLinkAttributes->GetInt(BMDDeckLinkSupportsInputFormatDetection, &cfgid) == S_OK){         
+                if(deckLinkAttributes->GetInt(BMDDeckLinkSupportsInputFormatDetection, &cfgid) == S_OK){
                     g_videoModeIndex = cfgid;
                 }
-            } else { 
+            } else {
                 fprintf(stderr, "No video mode specified and this card does not support auto detection\n");
                 usage(0);
             }
