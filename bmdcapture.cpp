@@ -2,6 +2,7 @@
 ** Copyright (c) 2009 Blackmagic Design
 ** Copyright (c) 2011 Luca Barbato
 **    with additions/fixes from Christian Hoffmann, 2012
+**    and Barney Salter, 2013
 **
 ** Permission is hereby granted, free of charge, to any person or organization
 ** obtaining a copy of the software and accompanying documentation covered by
@@ -698,6 +699,7 @@ static void *push_packet(void *ctx)
 
 int main(int argc, char *argv[])
 {
+    IDeckLinkAttributes* deckLinkAttributes = NULL;
     IDeckLinkIterator *deckLinkIterator = CreateDeckLinkIteratorInstance();
     DeckLinkCaptureDelegate *delegate;
     BMDDisplayMode selectedDisplayMode = bmdModeNTSC;
@@ -705,6 +707,8 @@ int main(int argc, char *argv[])
     int exitStatus                     = 1;
     int aconnection                    = 0, vconnection = 0, camera = 0, i = 0;
     int ch;
+    int64_t cfgid;
+    bool supported;
     BMDPixelFormat pix = bmdFormat8BitYUV;
     HRESULT result;
     pthread_t th;
@@ -720,7 +724,7 @@ int main(int argc, char *argv[])
     }
 
     // Parse command line options
-    while ((ch = getopt(argc, argv, "?hvc:s:f:a:m:n:p:M:F:C:A:V:")) != -1) {
+    while ((ch = getopt(argc, argv, "?hvcm:s:f:a:n:p:M:F:C:A:V:")) != -1) {
         switch (ch) {
         case 'v':
             g_verbose = true;
@@ -907,8 +911,20 @@ int main(int argc, char *argv[])
     }
 
     if (g_videoModeIndex < 0) {
-        fprintf(stderr, "No video mode specified\n");
-        usage(0);
+        result = deckLinkAttributes->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &supported);
+        if (result == S_OK) {
+            if(supported == true){
+                if(deckLinkAttributes->GetInt(BMDDeckLinkSupportsInputFormatDetection, &cfgid) == S_OK){
+                    g_videoModeIndex = cfgid;
+                }
+            } else {
+                fprintf(stderr, "No video mode specified and this card does not support auto detection\n");
+                usage(0);
+            }
+        } else {
+            fprintf(stderr, "Unable to query Input Mode Detection Interface\n");
+            goto bail;
+        }
     }
 
     selectedDisplayMode = -1;
