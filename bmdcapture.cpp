@@ -24,6 +24,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
 
 #include "compat.h"
 #include "DeckLinkAPI.h"
@@ -357,6 +358,7 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
     void *audioFrameBytes;
     BMDTimeValue frameTime;
     BMDTimeValue frameDuration;
+    time_t cur_time;
 
     frameCount++;
 
@@ -392,18 +394,24 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
                     *p++ = bars[(x * 8) / width];
             }
 
-            if (!no_video)
-                fprintf(stderr,
+            if (!no_video) {
+                time(&cur_time);
+                fprintf(stderr,"%s "
                         "Frame received (#%lu) - No input signal detected "
                         "- Frames dropped %u - Total dropped %u\n",
+                        ctime(&cur_time),
                         frameCount, ++dropped, ++totaldropped);
+            }
             no_video = 1;
         } else {
-            if (no_video)
-                fprintf(stderr,
+            if (no_video) {
+                time(&cur_time);
+                fprintf(stderr, "%s "
                         "Frame received (#%lu) - Input returned "
                         "- Frames dropped %u - Total dropped %u\n",
+                        ctime(&cur_time),
                         frameCount, ++dropped, ++totaldropped);
+            }
             no_video = 0;
         }
 
