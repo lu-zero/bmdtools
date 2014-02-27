@@ -777,7 +777,8 @@ void Player::WriteNextAudioSamples()
         if (m_deckLinkOutput->ScheduleAudioSamples(pkt.data +
                                                    off * bytes_per_sample,
                                                    samples,
-                                                   pkt.pts + off, 48000,
+                                                   pkt.pts + off,
+                                                   audio_st->time_base.den / audio_st->time_base.num,
                                                    &samplesWritten) != S_OK)
             fprintf(stderr, "error writing audio sample\n");
         samples -= samplesWritten;
