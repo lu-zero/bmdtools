@@ -134,7 +134,8 @@ static int packet_queue_put(PacketQueue *q, AVPacket *pkt)
     q->last_pkt = pkt1;
     q->nb_packets++;
     if (q->nb_packets > 5000)
-        fprintf(stderr, "%ld storing %p, %s\n",
+        fprintf(stderr,
+                "%ld storing %p, %s - is the input faster than realtime?\n",
                 q->nb_packets,
                 q,
                 q == &videoqueue ? "videoqueue" : "audioqueue");
