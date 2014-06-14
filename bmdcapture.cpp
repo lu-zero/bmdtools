@@ -671,6 +671,7 @@ int usage(int status)
         "                         4: SDI\n"
         "                         5: Optical SDI\n"
         "                         6: S-Video\n"
+        "    -o <optionstring>    AVFormat options\n"
         "Capture video and audio to a file. Raw video and audio can be sent to a pipe to avconv or vlc e.g.:\n"
         "\n"
         "    bmdcapture -m 2 -A 1 -V 1 -F nut -f pipe:1\n\n\n"
@@ -705,6 +706,7 @@ int main(int argc, char *argv[])
     int exitStatus                     = 1;
     int aconnection                    = 0, vconnection = 0, camera = 0, i = 0;
     int ch;
+    AVDictionary *opts = NULL;
     BMDPixelFormat pix = bmdFormat8BitYUV;
     HRESULT result;
     pthread_t th;
@@ -720,7 +722,7 @@ int main(int argc, char *argv[])
     }
 
     // Parse command line options
-    while ((ch = getopt(argc, argv, "?hvc:s:f:a:m:n:p:M:F:C:A:V:")) != -1) {
+    while ((ch = getopt(argc, argv, "?hvc:s:f:a:m:n:p:M:F:C:A:V:o:")) != -1) {
         switch (ch) {
         case 'v':
             g_verbose = true;
@@ -797,6 +799,12 @@ int main(int argc, char *argv[])
         case 'S':
             serial_fd = open(optarg, O_RDWR | O_NONBLOCK);
             break;
+        case 'o':
+            if (av_dict_parse_string(&opts, optarg, "=", ":", 0) < 0) {
+                fprintf(stderr, "Cannot parse option string %s\n",
+                        optarg);
+                goto bail;
+            }
         case '?':
         case 'h':
             usage(0);
@@ -965,7 +973,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    avformat_write_header(oc, NULL);
+    avformat_write_header(oc, &opts);
     avpacket_queue_init(&queue);
 
     result = deckLinkInput->StartStreams();
