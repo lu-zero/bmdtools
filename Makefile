@@ -30,7 +30,7 @@ bindir ?= $(prefix)/bin
 CXX = g++
 SDK_PATH = ../../include
 
-SYS=`uname -s`
+SYS=$(shell uname)
 
 PKG_DEPS = libavcodec libavformat libswscale libavutil
 
@@ -40,7 +40,7 @@ LDFLAGS  = `pkg-config --libs $(PKG_DEPS)`
 CXXFLAGS+= -Wno-multichar -I $(SDK_PATH) -fno-rtti -g
 LDFLAGS += -lm -ldl -lpthread
 
-ifeq ($(SYS),Darwin)
+ifeq ($(SYS), Darwin)
 CXXFLAGS+= -framework CoreFoundation -DHAVE_CFSTRING
 LDFLAGS += -framework CoreFoundation
 endif
