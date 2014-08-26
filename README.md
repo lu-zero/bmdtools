@@ -2,7 +2,7 @@
 
 Initially developed as an example integration between libavformat and the
 bmd sdk, it ended up being a set of useful tools to use the BlackMagic Devices
-decklink cards on Linux and MacOSX.
+decklink cards on Linux and OSX.
 
 Thanks to TodoStreaming sponsoring its early development.
 
@@ -19,10 +19,9 @@ You can build it out of the Sample tree by issuing
 make SDK_PATH=/path/to/the/bmd/include
 ```
 
-### MacOSX Support
+### OSX Support
 
-Pass SYS=Darwin to make, it should work, please DO complain to BlackMagic
-Design for having non-matching apis cross operating systems.
+Should work out of box.
 
 ### Windows Support
 
@@ -46,6 +45,8 @@ Patch and/or sponsorship welcome.
 -f output file name, any libavformat compatible url is supported.
 
 -m specific modeline, resolution+framerate
+
+-o pass AVFormat AVOptions (expert)
 
 NOTE: make sure you are processing frames capture in real time or be
 prepared to end up using all your memory quite quickly, HD raw data
