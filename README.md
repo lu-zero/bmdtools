@@ -9,9 +9,10 @@ Thanks to TodoStreaming sponsoring its early development.
 ## Build instructions
 
 In order to build it just clone/unpack this on your Sample directory from the
-DeckLink SDK and then issue "make". If you have Libav and pkg-config installed
-it will build fine. Make sure you are using a quite recent Libav otherwise it
-will not build.
+DeckLink SDK and then issue "make". If you have [Libav][1] and [pkg-config][2] or
+[pkgconf][3] installed it will build fine.
+
+    Make sure you are using at least Libav9 otherwise it will not build.
 
 You can build it out of the Sample tree by issuing
 
@@ -70,3 +71,7 @@ lu_zero@gentoo.org or luca.barbato@luminem.it
 ### Paid Support
 
 Paid support is offered, contact info@luminem.it for details.
+
+[1]: http://libav.org
+[2]: http://www.freedesktop.org/wiki/Software/pkg-config/
+[3]: https://github.com/pkgconf/pkgconf
