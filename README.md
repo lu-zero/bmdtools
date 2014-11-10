@@ -34,7 +34,7 @@ Patch and/or sponsorship welcome.
 ## Usage
 
 ```sh
-./bmdcapture -C 1 -m 2 -I 1 -F nut -f pipe:1 | avconv -y -i - <your options here>
+./bmdcapture -C 1 -m 2 -I 1 -F nut -o strict=experimental:syncpoints=none -f pipe:1 | avconv -y -i - <your options here>
 ```
 
 -I switch from the default (HDMI) source to Analog (both audio and video)
@@ -49,13 +49,17 @@ Patch and/or sponsorship welcome.
 
 -o pass AVFormat AVOptions (expert)
 
-NOTE: make sure you are processing frames capture in real time or be
+> NOTE: make sure you are processing frames capture in real time or be
 prepared to end up using all your memory quite quickly, HD raw data
 fills up memory quickly.
 
 ```sh
-avconv -vsync 1 -i <source> -c:v rawvideo -pix_fmt uyvy422 -c:a pcm_s16le -ar 48000 -f nut - | ./bmdplay -f pipe:0
+avconv -vsync 1 -i <source> -c:v rawvideo -pix_fmt uyvy422 -c:a pcm_s16le -ar 48000 -f nut -f_strict experimental -syncpoints none - | ./bmdplay -f pipe:0
 ```
+
+> NOTE: The default NUT syncpoint strategy uses additional memory and could
+consume more memory than expected.
+
 
 ## Support
 
