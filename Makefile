@@ -47,12 +47,14 @@ endif
 
 PROGRAMS = bmdcapture bmdplay bmdgenlock
 
+COMMON_FILES = modes.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
+
 all: $(PROGRAMS)
 
-bmdcapture: bmdcapture.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
+bmdcapture: bmdcapture.cpp $(COMMON_FILES)
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
-bmdplay: bmdplay.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
+bmdplay: bmdplay.cpp $(COMMON_FILES)
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
 bmdgenlock: genlock.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp

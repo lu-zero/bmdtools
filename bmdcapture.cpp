@@ -29,6 +29,7 @@
 #include "compat.h"
 #include "DeckLinkAPI.h"
 #include "Capture.h"
+#include "modes.h"
 extern "C" {
 #include "libavformat/avformat.h"
 }
@@ -502,80 +503,12 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFormatChanged(
     return S_OK;
 }
 
-void print_output_modes(IDeckLink *deckLink)
-{
-    IDeckLinkInput *deckLinkInput                     = NULL;
-    IDeckLinkDisplayModeIterator *displayModeIterator = NULL;
-    IDeckLinkDisplayMode *displayMode                 = NULL;
-    HRESULT result;
-    int displayModeCount = 0;
-
-    // Query the DeckLink for its configuration interface
-    result = deckLink->QueryInterface(IID_IDeckLinkInput,
-                                      (void **)&deckLinkInput);
-    if (result != S_OK) {
-        fprintf(
-            stderr,
-            "Could not obtain the IDeckLinkInput interface - result = %08x\n",
-            result);
-        goto bail;
-    }
-
-    // Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on output
-    result = deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
-    if (result != S_OK) {
-        fprintf(
-            stderr,
-            "Could not obtain the video output display mode iterator - result = %08x\n",
-            result);
-        goto bail;
-    }
-
-    // List all supported output display modes
-    printf("Supported video output display modes and pixel formats:\n");
-    while (displayModeIterator->Next(&displayMode) == S_OK) {
-        BMDProbeString str;
-
-        result = displayMode->GetName(&str);
-        if (result == S_OK) {
-            char modeName[64];
-            int modeWidth;
-            int modeHeight;
-            BMDTimeValue frameRateDuration;
-            BMDTimeScale frameRateScale;
-            int pixelFormatIndex = 0;                     // index into the gKnownPixelFormats / gKnownFormatNames arrays
-            BMDDisplayModeSupport displayModeSupport;
-            // Obtain the display mode's properties
-            modeWidth  = displayMode->GetWidth();
-            modeHeight = displayMode->GetHeight();
-            displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-            printf("        %2d:   %-20s \t %d x %d \t %7g FPS\n",
-                   displayModeCount++, ToStr(str), modeWidth, modeHeight,
-                   (double)frameRateScale / (double)frameRateDuration);
-
-            FreeStr(str);
-        }
-        // Release the IDeckLinkDisplayMode object to prevent a leak
-        displayMode->Release();
-    }
-//	printf("\n");
-bail:
-    // Ensure that the interfaces we obtained are released to prevent a memory leak
-    if (displayModeIterator != NULL) {
-        displayModeIterator->Release();
-    }
-    if (deckLinkInput != NULL) {
-        deckLinkInput->Release();
-    }
-}
-
 int usage(int status)
 {
     HRESULT result;
     IDeckLinkIterator *deckLinkIterator;
     IDeckLink *deckLink;
     int numDevices = 0;
-//  int                displayModeCount = 0;
 
     fprintf(stderr,
             "Usage: bmdcapture -m <mode id> [OPTIONS]\n"
@@ -601,7 +534,7 @@ int usage(int status)
             printf("\n\n");
         }
 
-        // *** Print the model name of the DeckLink card
+        // Print the model name of the DeckLink card
         result = deckLink->GetModelName(&str);
         if (result == S_OK) {
             printf("-> %s (-C %d )\n\n",
@@ -610,7 +543,7 @@ int usage(int status)
             FreeStr(str);
         }
 
-        print_output_modes(deckLink);
+        print_input_modes(deckLink);
         // Release the IDeckLink instance when we've finished with it to prevent leaks
         deckLink->Release();
     }
@@ -622,32 +555,6 @@ int usage(int status)
     }
     printf("\n");
 
-/*
- *  if (displayModeIterator)
- *  {
- *      // we try to print out some useful information about the chosen
- *      // card, but this only works if a card has been selected successfully
- *
- *      while (displayModeIterator->Next(&displayMode) == S_OK)
- *      {
- *          char *          displayModeString = NULL;
- *
- *          result = displayMode->GetName((const char **) &displayModeString);
- *          if (result == S_OK)
- *          {
- *              BMDTimeValue frameRateDuration, frameRateScale;
- *              displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
- *              fprintf(stderr, "        %2d:  %-20s \t %li x %li \t %g FPS\n",
- *                  displayModeCount, displayModeString, displayMode->GetWidth(), displayMode->GetHeight(), (double)frameRateScale / (double)frameRateDuration);
- *              free(displayModeString);
- *              displayModeCount++;
- *          }
- *
- *          // Release the IDeckLinkDisplayMode object to prevent a leak
- *          displayMode->Release();
- *      }
- *  }
- */
     fprintf(
         stderr,
         "    -v                   Be verbose (report each 25 frames)\n"
@@ -672,7 +579,8 @@ int usage(int status)
         "                         5: Optical SDI\n"
         "                         6: S-Video\n"
         "    -o <optionstring>    AVFormat options\n"
-        "Capture video and audio to a file. Raw video and audio can be sent to a pipe to avconv or vlc e.g.:\n"
+        "Capture video and audio to a file.\n"
+        "Raw video and audio can be sent to a pipe to avconv or vlc e.g.:\n"
         "\n"
         "    bmdcapture -m 2 -A 1 -V 1 -F nut -f pipe:1\n\n\n"
         );

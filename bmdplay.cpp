@@ -41,6 +41,8 @@ extern "C" {
 #include "compat.h"
 #include "Play.h"
 
+#include "modes.h"
+
 pthread_mutex_t sleepMutex;
 pthread_cond_t sleepCond;
 IDeckLinkConfiguration *deckLinkConfiguration;
@@ -245,71 +247,6 @@ void *fill_queues(void *unused)
 void sigfunc(int signum)
 {
     pthread_cond_signal(&sleepCond);
-}
-
-void print_output_modes(IDeckLink *deckLink)
-{
-    IDeckLinkOutput *deckLinkOutput                   = NULL;
-    IDeckLinkDisplayModeIterator *displayModeIterator = NULL;
-    IDeckLinkDisplayMode *displayMode                 = NULL;
-    HRESULT result;
-    int displayModeCount = 0;
-
-    // Query the DeckLink for its configuration interface
-    result = deckLink->QueryInterface(IID_IDeckLinkOutput,
-                                      (void **)&deckLinkOutput);
-    if (result != S_OK) {
-        fprintf(
-            stderr,
-            "Could not obtain the IDeckLinkOutput interface - result = %08x\n",
-            result);
-        goto bail;
-    }
-
-    // Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on output
-    result = deckLinkOutput->GetDisplayModeIterator(&displayModeIterator);
-    if (result != S_OK) {
-        fprintf(
-            stderr,
-            "Could not obtain the video output display mode iterator - result = %08x\n",
-            result);
-        goto bail;
-    }
-
-    // List all supported output display modes
-    printf("Supported video output display modes and pixel formats:\n");
-    while (displayModeIterator->Next(&displayMode) == S_OK) {
-        BMDProbeString str;
-
-        result = displayMode->GetName(&str);
-        if (result == S_OK) {
-            char modeName[64];
-            int modeWidth;
-            int modeHeight;
-            BMDTimeValue frameRateDuration;
-            BMDTimeScale frameRateScale;
-            int pixelFormatIndex = 0;                                                         // index into the gKnownPixelFormats / gKnownFormatNames arrays
-            BMDDisplayModeSupport displayModeSupport;
-            // Obtain the display mode's properties
-            modeWidth  = displayMode->GetWidth();
-            modeHeight = displayMode->GetHeight();
-            displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-            printf("        %2d:   %-20s \t %d x %d \t %7g FPS\n",
-                   displayModeCount++, ToStr(str), modeWidth, modeHeight,
-                   (double)frameRateScale / (double)frameRateDuration);
-
-            FreeStr(str);
-        }
-        // Release the IDeckLinkDisplayMode object to prevent a leak
-        displayMode->Release();
-    }
-//	printf("\n");
-bail:
-    // Ensure that the interfaces we obtained are released to prevent a memory leak
-    if (displayModeIterator != NULL)
-        displayModeIterator->Release();
-    if (deckLinkOutput != NULL)
-        deckLinkOutput->Release();
 }
 
 int usage(int status)
