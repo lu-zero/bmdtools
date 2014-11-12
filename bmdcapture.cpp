@@ -713,6 +713,7 @@ int main(int argc, char *argv[])
                         optarg);
                 goto bail;
             }
+            break;
         case '?':
         case 'h':
             usage(0);
