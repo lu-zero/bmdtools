@@ -34,10 +34,8 @@ Patch and/or sponsorship welcome.
 ## Usage
 
 ```sh
-./bmdcapture -C 1 -m 2 -I 1 -F nut -o strict=experimental:syncpoints=none -f pipe:1 | avconv -y -i - <your options here>
+./bmdcapture -C 1 -m 2 -F nut -o strict=experimental:syncpoints=none -f pipe:1 | avconv -y -i - <your options here>
 ```
-
--I switch from the default (HDMI) source to Analog (both audio and video)
 
 -C select the capture device if more than one is present.
 
