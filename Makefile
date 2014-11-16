@@ -28,7 +28,7 @@ prefix ?= /usr
 bindir ?= $(prefix)/bin
 
 CXX = g++
-SDK_PATH = ../../include
+SDK_PATH = ../Blackmagic_DeckLink_SDK_10.1.1/Linux/include
 
 SYS=$(shell uname)
 
@@ -37,7 +37,7 @@ PKG_DEPS = libavcodec libavformat libswscale libavutil
 CXXFLAGS = `pkg-config --cflags $(PKG_DEPS)` -D__STDC_CONSTANT_MACROS
 LDFLAGS  = `pkg-config --libs $(PKG_DEPS)`
 
-CXXFLAGS+= -Wno-multichar -I $(SDK_PATH) -fno-rtti -g
+CXXFLAGS+= -Wno-multichar -I $(SDK_PATH) -I./ -fno-rtti -g
 LDFLAGS += -lm -ldl -lpthread
 
 ifeq ($(SYS), Darwin)
@@ -47,11 +47,11 @@ endif
 
 PROGRAMS = bmdcapture bmdplay bmdgenlock
 
-COMMON_FILES = modes.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
+COMMON_FILES = modes.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp 
 
 all: $(PROGRAMS)
 
-bmdcapture: bmdcapture.cpp $(COMMON_FILES)
+bmdcapture: bmdcapture.cpp closedcaption.cpp $(COMMON_FILES)
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
 bmdplay: bmdplay.cpp $(COMMON_FILES)

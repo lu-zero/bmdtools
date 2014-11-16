@@ -2,6 +2,7 @@
 #define __CAPTURE_H__
 
 #include "DeckLinkAPI.h"
+#include "ClosedCaption.h"
 
 class DeckLinkCaptureDelegate : public IDeckLinkInputCallback
 {
@@ -18,6 +19,7 @@ public:
 private:
 	ULONG				m_refCount;
 	pthread_mutex_t		m_mutex;
+	ClosedCaption		cc;
 };
 
 #endif

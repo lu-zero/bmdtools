@@ -57,7 +57,7 @@ unsigned long long g_memoryLimit = 1024 * 1024 * 1024;            // 1GByte(>50 
 
 static unsigned long frameCount = 0;
 static unsigned int dropped     = 0, totaldropped = 0;
-static enum PixelFormat pix_fmt = PIX_FMT_UYVY422;
+enum PixelFormat pix_fmt = PIX_FMT_UYVY422;
 static enum AVSampleFormat sample_fmt = AV_SAMPLE_FMT_S16;
 typedef struct AVPacketQueue {
     AVPacketList *first_pkt, *last_pkt;
@@ -279,6 +279,22 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
     return st;
 }
 
+static AVStream *add_subtitle_stream(AVFormatContext *oc, enum AVCodecID codec_id)
+{
+    AVCodec *codec;
+    AVCodecContext *c;
+    AVStream *st;
+
+    st = avformat_new_stream(oc, NULL);
+    if (!st) {
+        fprintf(stderr, "Could not alloc stream\n");
+        exit(1);
+    }
+
+    c = st->codec;
+    c->codec_id = codec_id;
+    c->codec_type = AVMEDIA_TYPE_SUBTITLE;
+}
 static AVStream *add_data_stream(AVFormatContext *oc, enum AVCodecID codec_id)
 {
     AVCodec *codec;
@@ -436,7 +452,6 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         c->frame_number++;
         avpacket_queue_put(&queue, &pkt);
 
-
     }
 
     // Handle Audio Frame
@@ -475,6 +490,7 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         avpacket_queue_put(&queue, &pkt);
     }
 
+    cc.extract(videoFrame);
     if (serial_fd > 0) {
         AVPacket pkt;
         char line[8] = {0};
