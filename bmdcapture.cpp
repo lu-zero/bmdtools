@@ -977,7 +977,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Unable to join Thread\n");
     } else if (err_str) {
         fprintf(stderr, "%s",err_str);
-	freep(err_str);
+	av_freep(err_str);
     }
 
     deckLinkInput->StopStreams();
