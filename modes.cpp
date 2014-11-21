@@ -28,14 +28,11 @@
 
 void print_display_mode(IDeckLinkDisplayMode *displayMode, int index)
 {
-    char modeName[64];
     int modeWidth, modeHeight;
-    int pixelFormatIndex = 0;
-    int ret;
 
     BMDTimeValue frameRateDuration;
     BMDTimeScale frameRateScale;
-    BMDDisplayModeSupport displayModeSupport;
+    //BMDDisplayModeSupport displayModeSupport;
     BMDProbeString str;
 
     if (displayMode->GetName(&str) != S_OK)

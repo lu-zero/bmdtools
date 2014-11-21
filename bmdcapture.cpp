@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <time.h>
 
+#include <limits.h>
 #include "compat.h"
 #include "DeckLinkAPI.h"
 #include "Capture.h"
@@ -34,13 +35,11 @@ extern "C" {
 #include "libavformat/avformat.h"
 }
 
-pthread_mutex_t sleepMutex;
-pthread_cond_t sleepCond;
 int videoOutputFile = -1;
 int audioOutputFile = -1;
 
-IDeckLink *deckLink;
-IDeckLinkInput *deckLinkInput;
+IDeckLink *deckLink = NULL;
+IDeckLinkInput *deckLinkInput = NULL;
 IDeckLinkDisplayModeIterator *displayModeIterator;
 IDeckLinkDisplayMode *displayMode;
 IDeckLinkConfiguration *deckLinkConfiguration;
@@ -50,7 +49,7 @@ static int g_audioChannels       = 2;
 static int g_audioSampleDepth    = 16;
 const char *g_videoOutputFile    = NULL;
 const char *g_audioOutputFile    = NULL;
-static int g_maxFrames           = -1;
+static unsigned int g_maxFrames  = UINT_MAX;
 static int serial_fd             = -1;
 bool g_verbose                   = false;
 unsigned long long g_memoryLimit = 1024 * 1024 * 1024;            // 1GByte(>50 sec)
@@ -142,8 +141,8 @@ static int avpacket_queue_get(AVPacketQueue *q, AVPacket *pkt, int block)
     AVPacketList *pkt1;
     int ret;
 
-    pthread_mutex_lock(&q->mutex);
 
+    pthread_mutex_lock(&q->mutex);
     for (;; ) {
         pkt1 = q->first_pkt;
         if (pkt1) {
@@ -183,7 +182,7 @@ static unsigned long long avpacket_queue_size(AVPacketQueue *q)
 
 AVOutputFormat *fmt = NULL;
 AVFormatContext *oc;
-AVStream *audio_st, *video_st, *data_st;
+AVStream *audio_st, *video_st, *data_st, *sub_st;
 BMDTimeValue frameRateDuration, frameRateScale;
 
 static AVStream *add_audio_stream(AVFormatContext *oc, enum AVCodecID codec_id)
@@ -195,7 +194,7 @@ static AVStream *add_audio_stream(AVFormatContext *oc, enum AVCodecID codec_id)
     st = avformat_new_stream(oc, NULL);
     if (!st) {
         fprintf(stderr, "Could not alloc stream\n");
-        exit(1);
+        return NULL;
     }
 
     c             = st->codec;
@@ -214,13 +213,13 @@ static AVStream *add_audio_stream(AVFormatContext *oc, enum AVCodecID codec_id)
 
     codec = avcodec_find_encoder(c->codec_id);
     if (!codec) {
-        fprintf(stderr, "codec not found\n");
-        exit(1);
+        fprintf(stderr, "audio codec not found\n");
+        return NULL;
     }
 
     if (avcodec_open2(c, codec, NULL) < 0) {
-        fprintf(stderr, "could not open codec\n");
-        exit(1);
+        fprintf(stderr, "could not open audio codec\n");
+        return NULL;
     }
 
     return st;
@@ -235,7 +234,7 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
     st = avformat_new_stream(oc, NULL);
     if (!st) {
         fprintf(stderr, "Could not alloc stream\n");
-        exit(1);
+        return NULL;
     }
 
     c             = st->codec;
@@ -266,14 +265,14 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
     /* find the video encoder */
     codec = avcodec_find_encoder(c->codec_id);
     if (!codec) {
-        fprintf(stderr, "codec not found\n");
-        exit(1);
+        fprintf(stderr, "video codec not found\n");
+        return NULL;
     }
 
     /* open the codec */
     if (avcodec_open2(c, codec, NULL) < 0) {
         fprintf(stderr, "could not open codec\n");
-        exit(1);
+        return NULL;
     }
 
     return st;
@@ -288,12 +287,36 @@ static AVStream *add_subtitle_stream(AVFormatContext *oc, enum AVCodecID codec_i
     st = avformat_new_stream(oc, NULL);
     if (!st) {
         fprintf(stderr, "Could not alloc stream\n");
-        exit(1);
+        return NULL;
     }
 
     c = st->codec;
     c->codec_id = codec_id;
     c->codec_type = AVMEDIA_TYPE_SUBTITLE;
+
+    displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
+    c->time_base.den = frameRateScale;
+    c->time_base.num = frameRateDuration;
+    
+    // some formats want stream headers to be separate
+    if (oc->oformat->flags & AVFMT_GLOBALHEADER)
+        c->flags |= CODEC_FLAG_GLOBAL_HEADER;
+
+    /* find the subtitle encoder */
+    codec = avcodec_find_encoder(c->codec_id);
+    if (!codec) {
+        fprintf(stderr, "Subtitle codec not found\n");
+        return NULL;
+    }
+
+    /* open the codec */
+    if (avcodec_open2(c, codec, NULL) < 0) {
+        fprintf(stderr, "could not open codec\n");
+        return NULL;
+    }
+
+
+    return st;
 }
 static AVStream *add_data_stream(AVFormatContext *oc, enum AVCodecID codec_id)
 {
@@ -304,7 +327,7 @@ static AVStream *add_data_stream(AVFormatContext *oc, enum AVCodecID codec_id)
     st = avformat_new_stream(oc, NULL);
     if (!st) {
         fprintf(stderr, "Could not alloc stream\n");
-        exit(1);
+        return NULL;
     }
 
     c = st->codec;
@@ -371,19 +394,22 @@ static int no_video = 0;
 HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
     IDeckLinkVideoInputFrame *videoFrame, IDeckLinkAudioInputPacket *audioFrame)
 {
-    void *frameBytes;
+    void *frameBytes = NULL;
     void *audioFrameBytes;
     BMDTimeValue frameTime;
     BMDTimeValue frameDuration;
     time_t cur_time;
+    int ret = 0;
 
     frameCount++;
 
     // Handle Video Frame
     if (videoFrame) {
         AVPacket pkt;
+        AVPacket sub_pkt;
         AVCodecContext *c;
-        av_init_packet(&pkt);
+        
+	av_init_packet(&pkt);
         c = video_st->codec;
         if (g_verbose && frameCount % 25 == 0) {
             unsigned long long qsize = avpacket_queue_size(&queue);
@@ -393,18 +419,16 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
                     videoFrame->GetRowBytes() * videoFrame->GetHeight(),
                     (double)qsize / 1024 / 1024);
         }
-
         videoFrame->GetBytes(&frameBytes);
         videoFrame->GetStreamTime(&frameTime, &frameDuration,
                                   video_st->time_base.den);
-
         if (videoFrame->GetFlags() & bmdFrameHasNoInputSource) {
-            unsigned bars[8] = {
+            unsigned int bars[8] = {
                 0xEA80EA80, 0xD292D210, 0xA910A9A5, 0x90229035,
                 0x6ADD6ACA, 0x51EF515A, 0x286D28EF, 0x10801080 };
             int width  = videoFrame->GetWidth();
             int height = videoFrame->GetHeight();
-            unsigned *p = (unsigned *)frameBytes;
+            unsigned int*p = (unsigned int*)frameBytes;
 
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x += 2)
@@ -451,6 +475,26 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         //fprintf(stderr,"Video Frame size %d ts %d\n", pkt.size, pkt.pts);
         c->frame_number++;
         avpacket_queue_put(&queue, &pkt);
+        av_init_packet(&sub_pkt);
+
+        sub_pkt.pts = frameTime / video_st->time_base.num;
+
+        if (initial_video_pts == AV_NOPTS_VALUE) {
+            initial_video_pts = sub_pkt.pts;
+        }
+
+        sub_pkt.pts -= initial_video_pts;
+        sub_pkt.dts = sub_pkt.pts;
+
+        sub_pkt.duration = frameDuration;
+	sub_pkt.flags       |= AV_PKT_FLAG_KEY;
+        sub_pkt.stream_index = sub_st->index;
+	sub_pkt.data = NULL;
+	sub_pkt.size = 0;
+    	ret = cc.extract(videoFrame, sub_pkt);
+        if (ret >= 0) {
+            avpacket_queue_put(&queue, &sub_pkt);
+        }
 
     }
 
@@ -490,7 +534,6 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         avpacket_queue_put(&queue, &pkt);
     }
 
-    cc.extract(videoFrame);
     if (serial_fd > 0) {
         AVPacket pkt;
         char line[8] = {0};
@@ -608,17 +651,28 @@ static void *push_packet(void *ctx)
 {
     AVFormatContext *s = (AVFormatContext *)ctx;
     AVPacket pkt;
-    int ret;
+    int ret = 0;
+    char *err_str = (char*) malloc(128);
 
     while (avpacket_queue_get(&queue, &pkt, 1)) {
         av_interleaved_write_frame(s, &pkt);
-        if (g_maxFrames > 0 && frameCount >= g_maxFrames ||
-            avpacket_queue_size(&queue) > g_memoryLimit) {
-            pthread_cond_signal(&sleepCond);
+        if ( g_maxFrames < UINT_MAX && frameCount >= g_maxFrames ) {
+            snprintf(err_str,128,"Maximum frame Count reached\n");
+            ret = -1;
+            break;
+        }
+        else if ( avpacket_queue_size(&queue) > g_memoryLimit ) {
+            snprintf(err_str,128,"Queue crossed memory limit\n");
+            ret = -1;
+            break;
         }
     }
-
-    return NULL;
+    if (ret < 0) {
+        return err_str;
+    } else {
+        free(err_str);
+        return NULL;
+    }
 }
 
 int main(int argc, char *argv[])
@@ -634,9 +688,9 @@ int main(int argc, char *argv[])
     BMDPixelFormat pix = bmdFormat8BitYUV;
     HRESULT result;
     pthread_t th;
+    char *err_str = NULL;
+    int ret = 0;
 
-    pthread_mutex_init(&sleepMutex, NULL);
-    pthread_cond_init(&sleepCond, NULL);
     av_register_all();
 
     if (!deckLinkIterator) {
@@ -884,9 +938,15 @@ int main(int argc, char *argv[])
 
     fmt->video_codec = (pix == bmdFormat8BitYUV ? AV_CODEC_ID_RAWVIDEO : AV_CODEC_ID_V210);
     fmt->audio_codec = (sample_fmt == AV_SAMPLE_FMT_S16 ? AV_CODEC_ID_PCM_S16LE : AV_CODEC_ID_PCM_S32LE);
+    fmt->subtitle_codec = AV_CODEC_ID_EIA_608;
 
     video_st = add_video_stream(oc, fmt->video_codec);
+    if(!video_st )
+         goto bail;
     audio_st = add_audio_stream(oc, fmt->audio_codec);
+    sub_st = add_subtitle_stream(oc, fmt->subtitle_codec);
+    if ( !audio_st || !sub_st )
+        goto bail;
 
     if (serial_fd > 0)
         data_st = add_data_stream(oc, AV_CODEC_ID_TEXT);
@@ -894,7 +954,7 @@ int main(int argc, char *argv[])
     if (!(fmt->flags & AVFMT_NOFILE)) {
         if (avio_open(&oc->pb, oc->filename, AVIO_FLAG_WRITE) < 0) {
             fprintf(stderr, "Could not open '%s'\n", oc->filename);
-            exit(1);
+            goto bail;
         }
     }
 
@@ -912,9 +972,14 @@ int main(int argc, char *argv[])
         goto bail;
 
     // Block main thread until signal occurs
-    pthread_mutex_lock(&sleepMutex);
-    pthread_cond_wait(&sleepCond, &sleepMutex);
-    pthread_mutex_unlock(&sleepMutex);
+    ret  = pthread_join(th,(void**)&err_str);
+    if(ret) {
+        fprintf(stderr, "Unable to join Thread\n");
+    } else if (err_str) {
+        fprintf(stderr, "%s",err_str);
+	freep(err_str);
+    }
+
     deckLinkInput->StopStreams();
     fprintf(stderr, "Stopping Capture\n");
     avpacket_queue_end(&queue);
