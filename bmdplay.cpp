@@ -394,6 +394,18 @@ int main(int argc, char *argv[])
         }
     }
 
+    if (!audio_st) {
+        av_log(NULL, AV_LOG_ERROR,
+               "No audio stream found - bmdplay will close now.\n");
+        return 1;
+    }
+
+    if (!video_st) {
+        av_log(NULL, AV_LOG_ERROR,
+               "No video stream found - bmdplay will close now.\n");
+        return 1;
+    }
+
     av_dump_format(ic, 0, filename, 0);
 
     sws = sws_getContext(video_st->codec->width,
