@@ -32,6 +32,7 @@
 #include "modes.h"
 extern "C" {
 #include "libavformat/avformat.h"
+#include "libavutil/time.h"
 }
 
 pthread_mutex_t sleepMutex;
@@ -52,6 +53,7 @@ const char *g_videoOutputFile    = NULL;
 const char *g_audioOutputFile    = NULL;
 static int g_maxFrames           = -1;
 static int serial_fd             = -1;
+static int wallclock             = 0;
 bool g_verbose                   = false;
 unsigned long long g_memoryLimit = 1024 * 1024 * 1024;            // 1GByte(>50 sec)
 
@@ -500,6 +502,14 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
                           frameTime / video_st->time_base.num -
                           initial_video_pts);
     }
+    if (wallclock) {
+        int64_t t = av_gettime();
+        char line[20];
+        snprintf(line, sizeof(line), "%ld", t);
+        write_data_packet(line, strlen(line),
+                          frameTime / video_st->time_base.num -
+                          initial_video_pts);
+    }
 
     return S_OK;
 }
@@ -587,6 +597,7 @@ int usage(int status)
         "                         5: Optical SDI\n"
         "                         6: S-Video\n"
         "    -o <optionstring>    AVFormat options\n"
+        "    -w                   Embed a wallclock stream\n"
         "Capture video and audio to a file.\n"
         "Raw video and audio can be sent to a pipe to avconv or vlc e.g.:\n"
         "\n"
@@ -638,7 +649,7 @@ int main(int argc, char *argv[])
     }
 
     // Parse command line options
-    while ((ch = getopt(argc, argv, "?hvc:s:f:a:m:n:p:M:F:C:A:V:o:")) != -1) {
+    while ((ch = getopt(argc, argv, "?hvc:s:f:a:m:n:p:M:F:C:A:V:o:w")) != -1) {
         switch (ch) {
         case 'v':
             g_verbose = true;
@@ -722,10 +733,18 @@ int main(int argc, char *argv[])
                 goto bail;
             }
             break;
+        case 'w':
         case '?':
         case 'h':
             usage(0);
         }
+    }
+
+    if (serial_fd > 0 && wallclock) {
+        fprintf(stderr,
+                "Wallclock and serial are not supported together\n",
+                "Please disable either\n");
+        exit(1);
     }
 
     /* Connect to the first DeckLink instance */
@@ -880,7 +899,7 @@ int main(int argc, char *argv[])
     video_st = add_video_stream(oc, fmt->video_codec);
     audio_st = add_audio_stream(oc, fmt->audio_codec);
 
-    if (serial_fd > 0)
+    if (serial_fd > 0 || wallclock)
         data_st = add_data_stream(oc, AV_CODEC_ID_TEXT);
 
     if (!(fmt->flags & AVFMT_NOFILE)) {
