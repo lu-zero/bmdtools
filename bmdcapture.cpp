@@ -352,6 +352,21 @@ int64_t initial_audio_pts = AV_NOPTS_VALUE;
 
 static int no_video = 0;
 
+void write_data_packet(char *data, int size, int64_t pts)
+{
+    AVPacket pkt;
+    av_init_packet(&pkt);
+
+    pkt.flags        |= AV_PKT_FLAG_KEY;
+    pkt.stream_index  = data_st->index;
+    pkt.data          = (uint8_t*)data;
+    pkt.size          = size;
+    pkt.dts = pkt.pts = pts;
+
+    avpacket_queue_put(&queue, &pkt);
+}
+
+
 HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
     IDeckLinkVideoInputFrame *videoFrame, IDeckLinkAudioInputPacket *audioFrame)
 {
@@ -476,21 +491,14 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
     }
 
     if (serial_fd > 0) {
-        AVPacket pkt;
         char line[8] = {0};
         int count = read(serial_fd, line, 7);
         if (count > 0)
             fprintf(stderr, "read %d bytes: %s  \n", count, line);
 	else line[0] = ' ';
-        av_init_packet(&pkt);
-        pkt.flags |= AV_PKT_FLAG_KEY;
-        pkt.stream_index= data_st->index;
-        pkt.data = (uint8_t*)line;
-        pkt.size = 7;
-        pkt.pts = frameTime / video_st->time_base.num;
-        pkt.pts -= initial_video_pts;
-        pkt.dts = pkt.pts;
-        avpacket_queue_put(&queue, &pkt);
+        write_data_packet(line, 7,
+                          frameTime / video_st->time_base.num -
+                          initial_video_pts);
     }
 
     return S_OK;
