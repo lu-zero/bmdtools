@@ -142,8 +142,6 @@ int ClosedCaption::extract(IDeckLinkVideoInputFrame* arrivedFrame, AVPacket &pkt
 		vanc_row[idx++] = ((((unsigned char*)buffer)[i + 14] & 240) >> 4)
 			+ ((((unsigned char*)buffer)[i + 15] & 63) << 4);
 	}
-	if(pix_fmt != PIX_FMT_YUV422P10)
-		std::cout<<"8 bit pixel format not yet supported";
 	for (int i = 0; i < num_words_row - 2; i++)
 	{
 		// find the VANC packet ADF (ancillary data flag): 0x000 0x3ff 0x3ff;

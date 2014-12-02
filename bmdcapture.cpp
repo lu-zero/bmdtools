@@ -475,26 +475,27 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         //fprintf(stderr,"Video Frame size %d ts %d\n", pkt.size, pkt.pts);
         c->frame_number++;
         avpacket_queue_put(&queue, &pkt);
-        av_init_packet(&sub_pkt);
+	if( videoFrame->GetPixelFormat() == bmdFormat10BitYUV ) { 
+            av_init_packet(&sub_pkt);
+            sub_pkt.pts = frameTime / video_st->time_base.num;
 
-        sub_pkt.pts = frameTime / video_st->time_base.num;
+            if (initial_video_pts == AV_NOPTS_VALUE) {
+                initial_video_pts = sub_pkt.pts;
+            }
 
-        if (initial_video_pts == AV_NOPTS_VALUE) {
-            initial_video_pts = sub_pkt.pts;
-        }
+            sub_pkt.pts -= initial_video_pts;
+            sub_pkt.dts = sub_pkt.pts;
 
-        sub_pkt.pts -= initial_video_pts;
-        sub_pkt.dts = sub_pkt.pts;
-
-        sub_pkt.duration = frameDuration;
-	sub_pkt.flags       |= AV_PKT_FLAG_KEY;
-        sub_pkt.stream_index = sub_st->index;
-	sub_pkt.data = NULL;
-	sub_pkt.size = 0;
-    	ret = cc.extract(videoFrame, sub_pkt);
-        if (ret >= 0) {
-            avpacket_queue_put(&queue, &sub_pkt);
-        }
+            sub_pkt.duration = frameDuration;
+            sub_pkt.flags       |= AV_PKT_FLAG_KEY;
+            sub_pkt.stream_index = sub_st->index;
+            sub_pkt.data = NULL;
+            sub_pkt.size = 0;
+            ret = cc.extract(videoFrame, sub_pkt);
+            if (ret >= 0) {
+                 avpacket_queue_put(&queue, &sub_pkt);
+            }
+	}
 
     }
 
