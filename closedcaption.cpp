@@ -3,28 +3,9 @@
 #include <sys/time.h>
 
 extern enum PixelFormat pix_fmt;
-unsigned char cc_specialchar[] = {
-    0xae, // 'reserved' symbol
-    0xb0, // degree symbol
-    0xbd, // 1/2
-    0xbf, // upside-down question mark
-    ' ',  // FIXME: trademark
-    0xa2, // cents symbol
-    0xa3, // british pound symbol
-    ' ',  // FIXME: musical note
-    0xe0, // a with reverse accent
-    ' ',  // transparent space
-    0xe8, // e with reverse accent
-    0xe2, // a-hat
-    0xea, // e-hat
-    0xee, // i-hat
-    0xf4, // o-hat
-    0xfb  // u-hat
-    };
 
 ClosedCaption::ClosedCaption(void)
 {
-	build_char_table();
 	num_bytes_row = 0;
 	num_words_row = 0;
 	vanc_row = NULL;
@@ -39,28 +20,6 @@ ClosedCaption::~ClosedCaption(void)
 		free(pkt_buff);
 	if(vanc_row)
 		free(vanc_row);
-}
-void ClosedCaption::build_char_table(void)
-{
-    int i;
-    /* first the normal ASCII codes */
-    for (i = 0; i < 128; i++)
-    {
-        cc_chartbl[i] = (char) i;
-    }
-
-    /* now the codes that deviate from ASCII */
-    cc_chartbl[0x2a] = 0xe1;  // a with accent
-    cc_chartbl[0x5c] = 0xe9;  // e with accent
-    cc_chartbl[0x5e] = 0xed;  // i with accent
-    cc_chartbl[0x5f] = 0xf3;  // o with accent
-    cc_chartbl[0x60] = 0xfa;  // u with accent
-    cc_chartbl[0x7b] = 0xe7;  // cedilla
-    cc_chartbl[0x7c] = '/';   /* FIXME: this should be a division symbol */
-    cc_chartbl[0x7d] = 0xd1;  // N with tilde
-    cc_chartbl[0x7e] = 0xf1;  // n with tilde
-    cc_chartbl[0x7f] = ' ';    /* FIXME: this should be a solid block */
-
 }
 int ClosedCaption::extract(IDeckLinkVideoInputFrame* arrivedFrame, AVPacket &pkt)
 {
