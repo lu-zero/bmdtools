@@ -45,13 +45,13 @@ CXXFLAGS+= -framework CoreFoundation -DHAVE_CFSTRING
 LDFLAGS += -framework CoreFoundation
 endif
 
-PROGRAMS = bmdcapture bmdplay bmdgenlock
+PROGRAMS = bmdcapture #bmdplay bmdgenlock
 
 COMMON_FILES = modes.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp 
 
 all: $(PROGRAMS)
 
-bmdcapture: bmdcapture.cpp closedcaption.cpp $(COMMON_FILES)
+bmdcapture: bmdcapture.cpp closedcaption.cpp vnc_packet.cpp $(COMMON_FILES)
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
 bmdplay: bmdplay.cpp $(COMMON_FILES)
