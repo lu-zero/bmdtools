@@ -34,6 +34,7 @@ SYS=$(shell uname)
 
 PKG_DEPS = libavcodec libavformat libswscale libavutil
 
+export PKG_CONFIG_PATH :=/home/anshulm/work/bmd/usr/lib/pkgconfig
 CXXFLAGS = `pkg-config --cflags $(PKG_DEPS)` -D__STDC_CONSTANT_MACROS
 LDFLAGS  = `pkg-config --libs $(PKG_DEPS)`
 

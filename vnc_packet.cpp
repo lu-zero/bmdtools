@@ -23,7 +23,7 @@ int VncPacket::set_param(int vline, int16_t did, int16_t sdid)
 	this->sdid = sdid;
 	return 0;
 }
-int VncPacket::extract(IDeckLinkVideoInputFrame* arrivedFrame, uint16_t *data)
+int VncPacket::extract(IDeckLinkVideoInputFrame* arrivedFrame, uint16_t* &data)
 {
 	HRESULT result;
 	IDeckLinkVideoFrameAncillary *ancillary = NULL;
@@ -129,7 +129,7 @@ bail:
 	return ret;
 }
 
-int VncPacket::parse_vanc_packet (uint16_t *vanc_packet, long words_remaining, uint16_t *data)
+int VncPacket::parse_vanc_packet (uint16_t *vanc_packet, long words_remaining, uint16_t* &data)
 {
 	uint16_t did = vanc_packet[0] & 0x3ff;
 	uint16_t sdid = vanc_packet[1] & 0x3ff;

@@ -14,9 +14,9 @@ class VncPacket
 	public:
 	VncPacket(void);
 	~VncPacket(void);
-	int extract(IDeckLinkVideoInputFrame* arrivedFrame, uint16_t *data);
+	int extract(IDeckLinkVideoInputFrame* arrivedFrame, uint16_t* &data);
 	int set_param(int vline, int16_t did, int16_t sdid);
-	int parse_vanc_packet (uint16_t *vanc_packet, long words_remaining, uint16_t *data);
+	int parse_vanc_packet (uint16_t *vanc_packet, long words_remaining, uint16_t* &data);
 };
 
 #endif
