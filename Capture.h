@@ -3,6 +3,7 @@
 
 #include "DeckLinkAPI.h"
 #include "ClosedCaption.h"
+#include "SCTE_35.h"
 
 class DeckLinkCaptureDelegate : public IDeckLinkInputCallback
 {
@@ -20,6 +21,7 @@ private:
 	ULONG				m_refCount;
 	pthread_mutex_t		m_mutex;
 	ClosedCaption		cc;
+	class SCTE_35		scte_35;
 };
 
 #endif
