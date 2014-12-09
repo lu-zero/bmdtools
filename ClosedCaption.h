@@ -7,7 +7,6 @@ extern "C" {
 
 #include "VncPacket.h"
 #define CCLINE 9
-#define CC_LINE_BUFFER_MAX 256
 class ClosedCaption
 {
 	int opt_verbosity;

@@ -52,7 +52,7 @@ COMMON_FILES = modes.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
 
 all: $(PROGRAMS)
 
-bmdcapture: bmdcapture.cpp closedcaption.cpp vnc_packet.cpp $(COMMON_FILES)
+bmdcapture: bmdcapture.cpp closedcaption.cpp vnc_packet.cpp scte_35.c $(COMMON_FILES)
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
 bmdplay: bmdplay.cpp $(COMMON_FILES)
