@@ -2,8 +2,8 @@
 #include <sys/time.h>
 #include <iostream>
 
-#define CC_DID 0x161
-#define EIA608_SID 0x101
+#define CC_DID 0x61
+#define EIA608_SID 0x01
 
 ClosedCaption::ClosedCaption(void)
 {

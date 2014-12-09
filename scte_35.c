@@ -3,8 +3,8 @@
 #include <iostream>
 
 #define LINE 9
-#define SCTE_35_DID 0x161
-#define SCTE_35_SDID 0x101
+#define SCTE_35_DID 0x41
+#define SCTE_35_SDID 0x07
 
 using namespace std;
 SCTE_35::SCTE_35(void)

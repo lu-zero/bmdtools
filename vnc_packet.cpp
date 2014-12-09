@@ -131,8 +131,8 @@ bail:
 
 int VncPacket::parse_vanc_packet (uint16_t *vanc_packet, long words_remaining, uint16_t* &data)
 {
-	uint16_t did = vanc_packet[0] & 0x3ff;
-	uint16_t sdid = vanc_packet[1] & 0x3ff;
+	uint16_t did = vanc_packet[0] & 0xff;
+	uint16_t sdid = vanc_packet[1] & 0xff;
 	uint16_t data_count = vanc_packet[2] & 0xff;
 
 	// validate the DID and the SDID (before stripping off parity bits)
