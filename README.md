@@ -34,7 +34,7 @@ Patch and/or sponsorship welcome.
 ## Usage
 
 ```sh
-./bmdcapture -C 1 -m 2 -F nut -o strict=experimental:syncpoints=none -f pipe:1 | avconv -y -i - <your options here>
+./bmdcapture -C 1 -m 2 -F nut -o strict=experimental:syncpoints=none -f pipe:1 | avconv -vsync passthrough -y -i - <your options here>
 ```
 
 -C select the capture device if more than one is present.
