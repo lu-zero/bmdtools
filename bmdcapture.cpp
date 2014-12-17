@@ -280,7 +280,6 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
 
 static AVStream *add_subtitle_stream(AVFormatContext *oc, enum AVCodecID codec_id)
 {
-    AVCodec *codec;
     AVCodecContext *c;
     AVStream *st;
 
@@ -301,20 +300,6 @@ static AVStream *add_subtitle_stream(AVFormatContext *oc, enum AVCodecID codec_i
     // some formats want stream headers to be separate
     if (oc->oformat->flags & AVFMT_GLOBALHEADER)
         c->flags |= CODEC_FLAG_GLOBAL_HEADER;
-
-    /* find the subtitle encoder */
-    codec = avcodec_find_encoder(c->codec_id);
-    if (!codec) {
-        fprintf(stderr, "Subtitle codec not found\n");
-        return NULL;
-    }
-
-    /* open the codec */
-    if (avcodec_open2(c, codec, NULL) < 0) {
-        fprintf(stderr, "could not open codec\n");
-        return NULL;
-    }
-
 
     return st;
 }
@@ -1006,7 +991,8 @@ bail:
     }
 
     if (oc != NULL) {
-        av_write_trailer(oc);
+        if(oc->priv_data)
+            av_write_trailer(oc);
         if (!(fmt->flags & AVFMT_NOFILE)) {
             /* close the output file */
             avio_close(oc->pb);
