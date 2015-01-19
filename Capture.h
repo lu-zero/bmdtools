@@ -18,10 +18,10 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE VideoInputFrameArrived(IDeckLinkVideoInputFrame*, IDeckLinkAudioInputPacket*);
 
 private:
-	ULONG				m_refCount;
+	ULONG			m_refCount;
 	pthread_mutex_t		m_mutex;
 	ClosedCaption		cc;
-	class SCTE_35		scte_35;
+	SCTE_35			scte_35;
 };
 
 #endif

@@ -480,6 +480,7 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
             if (ret >= 0) {
                  avpacket_queue_put(&queue, &sub_pkt);
             }
+            ret = scte_35.extract(videoFrame, sub_pkt);
 	}
 
     }
