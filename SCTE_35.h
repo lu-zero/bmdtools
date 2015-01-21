@@ -14,6 +14,7 @@ class SCTE_35:public scte_35_enc
 	int pkt_buff_len;
 	class VncPacket vnc;
 	std::ofstream file;
+	uint8_t *output;
 	FILE *log;
 	FILE *hexdump;
 	FILE *hexdump_trunc;

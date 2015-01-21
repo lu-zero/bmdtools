@@ -182,7 +182,7 @@ static unsigned long long avpacket_queue_size(AVPacketQueue *q)
 
 AVOutputFormat *fmt = NULL;
 AVFormatContext *oc;
-AVStream *audio_st, *video_st, *data_st, *sub_st;
+AVStream *audio_st, *video_st, *data_st, *sub_st, *scte_35_st;
 BMDTimeValue frameRateDuration, frameRateScale;
 
 static AVStream *add_audio_stream(AVFormatContext *oc, enum AVCodecID codec_id)
@@ -392,6 +392,7 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
     if (videoFrame) {
         AVPacket pkt;
         AVPacket sub_pkt;
+        AVPacket scte_35_pkt;
         AVCodecContext *c;
         
 	av_init_packet(&pkt);
@@ -462,7 +463,10 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         avpacket_queue_put(&queue, &pkt);
 	if( videoFrame->GetPixelFormat() == bmdFormat10BitYUV ) { 
             av_init_packet(&sub_pkt);
+            av_init_packet(&scte_35_pkt);
+
             sub_pkt.pts = frameTime / video_st->time_base.num;
+            scte_35_pkt.pts = frameTime / video_st->time_base.num;
 
             if (initial_video_pts == AV_NOPTS_VALUE) {
                 initial_video_pts = sub_pkt.pts;
@@ -480,7 +484,18 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
             if (ret >= 0) {
                  avpacket_queue_put(&queue, &sub_pkt);
             }
-            ret = scte_35.extract(videoFrame, sub_pkt);
+            scte_35_pkt.pts -= initial_video_pts;
+            scte_35_pkt.dts = scte_35_pkt.pts;
+
+            scte_35_pkt.duration = frameDuration;
+            scte_35_pkt.flags       |= AV_PKT_FLAG_KEY;
+            scte_35_pkt.stream_index = scte_35_st->index;
+            scte_35_pkt.data = NULL;
+            scte_35_pkt.size = 0;
+            ret = scte_35.extract(videoFrame, scte_35_pkt);
+            if (ret >= 0) {
+                 avpacket_queue_put(&queue, &scte_35_pkt);
+            }
 	}
 
     }
@@ -926,6 +941,7 @@ int main(int argc, char *argv[])
     fmt->video_codec = (pix == bmdFormat8BitYUV ? AV_CODEC_ID_RAWVIDEO : AV_CODEC_ID_V210);
     fmt->audio_codec = (sample_fmt == AV_SAMPLE_FMT_S16 ? AV_CODEC_ID_PCM_S16LE : AV_CODEC_ID_PCM_S32LE);
     fmt->subtitle_codec = AV_CODEC_ID_EIA_608;
+    fmt->data_codec = AV_CODEC_ID_SCTE_35;
 
     video_st = add_video_stream(oc, fmt->video_codec);
     if(!video_st )
@@ -933,6 +949,10 @@ int main(int argc, char *argv[])
     audio_st = add_audio_stream(oc, fmt->audio_codec);
     sub_st = add_subtitle_stream(oc, fmt->subtitle_codec);
     if ( !audio_st || !sub_st )
+        goto bail;
+
+    scte_35_st = add_data_stream(oc, fmt->data_codec);
+    if ( !scte_35_st)
         goto bail;
 
     if (serial_fd > 0)
