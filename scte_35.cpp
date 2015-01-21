@@ -13,6 +13,7 @@ SCTE_35::SCTE_35(void)
 	pkt_buff = NULL;
 	pkt_buff_len = 0;
 	vnc.set_param(LINE, SCTE_35_DID, SCTE_35_SDID);
+	output = new uint8_t[512]; 
 	file.open ("scte.dat",ios::binary |ios::out);
 	log = fopen("scte.log", "w");
 	hexdump_trunc = fopen("scte_trunc.hex", "w");
@@ -23,6 +24,7 @@ SCTE_35::~SCTE_35(void)
 		free(pkt_buff);
   	file.close();
 	fclose(hexdump_trunc);
+	delete output;
 }
 
 int SCTE_35::parse_splice_request_data(const uint8_t *buf, int len)
@@ -219,32 +221,31 @@ int SCTE_35::extract(IDeckLinkVideoInputFrame* arrivedFrame, AVPacket &pkt)
 
 	if( pkt_buff_len < ret )
 	{
-		pkt_buff_len = ret;
 		pkt_buff = (unsigned char*)realloc(pkt_buff, ret);
 		if (pkt_buff == NULL)
 			std::cerr << "Unable to allocate Memory\n";
+		else
+			pkt_buff_len = ret;
 
 	}
-	//convert data in 8 bit format
-	//for (int i = 0; i < ret;i++)
-	//	pkt_buff[i] = data[i] & 0xff;
 	len = ret;
 	file.write((char*)data, ret*2);
         for(int i = 0; i < ret; i ++)
 	{
                 pkt_buff[i] = data[i] & 0xff;
         }
-	av_hex_dump(hexdump_trunc,(uint8_t*) pkt_buff, ret);
 	for(int i = 0; i < len; i ++)
 	{
                 ret = parse_scte104message(pkt_buff + i, len);
                 i += ret;
-                ret = encode(output, len);
-		fprintf(log, "\n");
+                ret = encode(output, pkt.size);
+		fprintf(stderr, "SCTE encoder Got some data %d\n",ret);
+		if (ret >= 0)
+			fprintf(stderr, "SCTE encoder Got some data %d\n",ret);
         }
 
-	pkt.size = 0;
-	pkt.data = NULL;
+	av_hex_dump(hexdump_trunc,(uint8_t*) output, ret);
+	pkt.data = output;
 	return ret;
 }
 
@@ -296,7 +297,6 @@ int main(int argc, char**argv)
                 stripfd = write(stripfd, sbuf,len);
                 for(i = 0, ret = 0; i < len;) {
                         ret = parser.parse_scte104message(sbuf + i , len-i);
-                        parser.encode(encoded_buf, temp);
                         if (ret > 0)
                                 i += ret;
                         else {

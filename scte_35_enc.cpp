@@ -53,7 +53,7 @@ int scte_35_enc::encode( unsigned char* out_buf, int &len)
 {
 	uint64_t bitbuf = 0;
 	unsigned char *buf_pivot = out_buf;
-	int ret;
+	int ret = 0;
 
 	*out_buf = 0xfc;
 	out_buf++;
@@ -112,5 +112,6 @@ int scte_35_enc::encode( unsigned char* out_buf, int &len)
 	AV_WB16(out_buf, descriptor_loop_length);
 	out_buf += 2;
 
-	return buf_pivot - out_buf;
+	len = out_buf - buf_pivot;
+	return out_buf - buf_pivot;
 }
