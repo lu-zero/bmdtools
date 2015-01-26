@@ -32,13 +32,13 @@ int SCTE_35::parse_splice_request_data(const uint8_t *buf, int len)
         const uint8_t *buf_pivot = buf;
 
         int insert_type = *buf++;
-        int event_id;
-        int unique_program_id;
-        int pre_roll_time;
-        int break_duration;
-        int avail_num;
-        int avails_expected;
-        int auto_return_flag;
+        uint32_t event_id;
+        uint16_t unique_program_id;
+        uint16_t pre_roll_time;
+        uint16_t break_duration;
+	uint8_t avail_num;
+        uint8_t avails_expected;
+        uint8_t auto_return_flag;
 
         fprintf(log, "insert_type = %d\n",insert_type);
         event_id = AV_RB32(buf);
@@ -58,7 +58,7 @@ int SCTE_35::parse_splice_request_data(const uint8_t *buf, int len)
         auto_return_flag = AV_RB8(buf);
         buf++;
 
-	set_insert_param(event_id);
+	set_event_param(event_id, unique_program_id, pre_roll_time, break_duration, avail_num, avails_expected, auto_return_flag);
 
         return buf - buf_pivot;
 }

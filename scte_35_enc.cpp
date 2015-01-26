@@ -1,6 +1,7 @@
 #include "scte_35_enc.h"
 extern "C" {
 #include "libavutil/intreadwrite.h"
+#include "libavutil/crc.h"
 }
 scte_35_enc::scte_35_enc(void)
 {
@@ -22,9 +23,20 @@ scte_35_enc::scte_35_enc(void)
 
 }
 
+int scte_35_enc::set_event_param(uint32_t event_id,
+			uint16_t unique_program_id,
+			uint16_t pre_roll_time,
+			uint16_t break_duration,
+			uint8_t avail_num,
+			uint8_t  avails_expected,
+			uint8_t auto_return_flag)
+{
+	insert_param.event_id = event_id;
+	return 0;
+}
 int scte_35_enc::encode_break_duration(uint8_t *q, int len)
 {
-	uint8_t q_pivot = q;
+	uint8_t *q_pivot = q;
 	uint8_t byte_8 = 0;
 
 	byte_8 |= insert_param.auto_return;
@@ -34,13 +46,13 @@ int scte_35_enc::encode_break_duration(uint8_t *q, int len)
 	byte_8 |= insert_param.duration >> 32;
 	*q = byte_8;
 	q++;
-	AV_WB32(insert_param.duration & 0xFFFFFFFF);
+	AV_WB32(q, insert_param.duration & 0xFFFFFFFF);
 	q += 4;
 	return q - q_pivot;
 }
 int scte_35_enc::encode_splice_time(uint8_t *q, int len)
 {
-	uint8_t q_pivot = q;
+	uint8_t *q_pivot = q;
 	uint8_t byte_8 = 0;
 
 	byte_8 |= insert_param.time_specified_flag;
@@ -52,7 +64,7 @@ int scte_35_enc::encode_splice_time(uint8_t *q, int len)
 		byte_8 |= insert_param.pts_time >> 32;
 		*q = byte_8;
 		q++;
-		AV_WB32(insert_param.pts_time & 0xFFFFFFFF);
+		AV_WB32(q, insert_param.pts_time & 0xFFFFFFFF);
 		q += 4;
 	} else {
 		byte_8 <<= 7;
@@ -68,17 +80,18 @@ int scte_35_enc::encode_splice_schedule(uint8_t *out_buf,int len)
 {
 	return 0;
 }
-int scte_35_enc::encode_splice_insert(uint8_t *out_buf, int len)
+int scte_35_enc::encode_splice_insert(uint8_t *q, int len)
 {
-	int used_bytes = 0;
+	uint8_t *q_pivot = q;
 	uint8_t byte_8;
+	int i = 0;
 
 	/* splice_event_id */
-	AV_WB32(insert_param.event_id);
+	AV_WB32(q, insert_param.event_id);
 	q += 4;
 
 	byte_8 = 0xFF;
-	byte_8 &= 0x7F | (Finsert_param.event_cancel_indicator << 7);
+	byte_8 &= 0x7F | (insert_param.event_cancel_indicator << 7);
 	*q++ = byte_8;
 
 	if (!insert_param.event_cancel_indicator) {
@@ -98,9 +111,9 @@ int scte_35_enc::encode_splice_insert(uint8_t *out_buf, int len)
 			q += encode_splice_time(q, len);
 		}
 		if(insert_param.program_splice_flag == 0) {
-			*q = component_count;
-			*q++;
-			for ( i = 0; i < component_count; i++) {
+			*q = insert_param.component_count;
+			q++;
+			for ( i = 0; i < insert_param.component_count; i++) {
 				*q = insert_param.component_tag[i];
 				q++;
 				if(insert_param.splice_immediate_flag == 0)
@@ -111,11 +124,11 @@ int scte_35_enc::encode_splice_insert(uint8_t *out_buf, int len)
 		if (insert_param.duration_flag == 0) {
 			q += encode_break_duration(q, len);
 		}
-		AV_WB16(insert_param.unique_program_id);
+		AV_WB16(q, insert_param.unique_program_id);
 		q += 2;
 		*q = insert_param.avail_num;
 		q++;
-		*q = insert+param.avail_expected;
+		*q = insert_param.avails_expected;
 		q++;
 	}
 
@@ -136,10 +149,6 @@ int scte_35_enc::encode_private_command(uint8_t *out_buf, int len)
 void scte_35_enc::set_command(unsigned int cmd)
 {
 	splice_command_type = cmd;
-}
-void scte_35_enc::set_insert_param(int32_t event_id)
-{
-	insert_param.event_id = event_id;
 }
 static unsigned crc32(const uint8_t *data, unsigned size)
 {
@@ -210,6 +219,7 @@ int scte_35_enc::encode( unsigned char* out_buf, int &len)
 	AV_WB16(out_buf, descriptor_loop_length);
 	out_buf += 2;
 	crc = crc32(buf_pivot, out_buf - buf_pivot);
+	AV_WB32(out_buf, crc);
 	out_buf += 4;
 	len = out_buf - buf_pivot;
 	return out_buf - buf_pivot;
