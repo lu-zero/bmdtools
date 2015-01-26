@@ -97,7 +97,7 @@ int SCTE_35::parse_multi_operation_message(const uint8_t *buf, int len)
         int mSize = 0;
         int nb_op;
         int i,data_length,opId;
-	int encode_bandwidth_reservation(uint8_t *out_buf, int len);
+	uint8_t protocol_version;
 
         /* reserved */
         buf += 2;
@@ -121,7 +121,8 @@ int SCTE_35::parse_multi_operation_message(const uint8_t *buf, int len)
         //printf("DPI_PID_index %hx = %hd\n",AV_RB16(buf), AV_RB16(buf));
         buf += 2;
 
-        fprintf(log, "SCTE 35 protocol Version %hhx = %hhd\n",AV_RB8(buf), AV_RB8(buf));
+	protocol_version = AV_RB8(buf);
+	set_scte35_protocol_version(protocol_version);
         buf++;
 
         buf += parse_timestamp(buf, buf - buf_pivot);
@@ -136,7 +137,7 @@ int SCTE_35::parse_multi_operation_message(const uint8_t *buf, int len)
                 switch(opId){
                 case 0x0101:
                         parse_splice_request_data(buf, data_length);
-			set_command(0x05);
+			command = 0x05;
                         break;
                 default:
                         break;
@@ -159,7 +160,7 @@ int SCTE_35::parse_single_operation_message(const uint8_t *buf, int len)
 	switch (opId) {
 	case 0x03:
 		/* set NULL scte-35 cmd */
-		set_command(0x00);
+		command = 0x00;
 		break;
 	default:
 		break;
@@ -238,7 +239,7 @@ int SCTE_35::extract(IDeckLinkVideoInputFrame* arrivedFrame, AVPacket &pkt)
 	{
                 ret = parse_scte104message(pkt_buff + i, len);
                 i += ret;
-                ret = encode(output, pkt.size);
+                ret = encode(output, pkt.size, command);
 		fprintf(stderr, "SCTE encoder Got some data %d\n",ret);
 		if (ret >= 0)
 			fprintf(stderr, "SCTE encoder Got some data %d\n",ret);

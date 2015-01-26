@@ -32,6 +32,10 @@ int scte_35_enc::set_event_param(uint32_t event_id,
 			uint8_t auto_return_flag)
 {
 	insert_param.event_id = event_id;
+	insert_param.unique_program_id = unique_program_id;
+	insert_param.avail_num = avail_num;
+	insert_param.avails_expected = avails_expected;
+	insert_param.auto_return = auto_return_flag;
 	return 0;
 }
 int scte_35_enc::encode_break_duration(uint8_t *q, int len)
@@ -146,16 +150,53 @@ int scte_35_enc::encode_private_command(uint8_t *out_buf, int len)
 {
 	return 0;
 }
-void scte_35_enc::set_command(unsigned int cmd)
+void scte_35_enc::set_scte35_protocol_version(uint8_t protocol_version)
 {
-	splice_command_type = cmd;
+	this->protocol_version = protocol_version;
+}
+int scte_35_enc::set_insert_type(uint8_t type)
+{
+	if (type == 0x00) {
+	/* DO nothing */
+	} else if (type == 0x01) {
+		insert_param.event_cancel_indicator = 0;
+		insert_param.out_of_network_indicator = 1;
+		insert_param.splice_immediate_flag = 0;
+	} else if (type == 0x02) {
+		insert_param.event_cancel_indicator = 0;
+		insert_param.out_of_network_indicator = 1;
+		insert_param.splice_immediate_flag = 1;
+	} else if (type == 0x03) {
+		insert_param.event_cancel_indicator = 0;
+		insert_param.out_of_network_indicator = 0;
+		insert_param.duration_flag = 0;
+		insert_param.splice_immediate_flag = 0;
+		insert_param.auto_return = 0;
+	} else if (type == 0x04) {
+		insert_param.event_cancel_indicator = 0;
+		insert_param.out_of_network_indicator = 0;
+		insert_param.duration_flag = 0;
+		insert_param.splice_immediate_flag = 1;
+		insert_param.auto_return = 0;
+	} else if (type == 0x05) {
+		insert_param.event_cancel_indicator = 1;
+		insert_param.out_of_network_indicator = 0;
+		insert_param.duration_flag = 0;
+		insert_param.splice_immediate_flag = 0;
+		insert_param.auto_return = 0;
+	} else {
+		return -1;
+	}
+
+	return 0;
+
 }
 static unsigned crc32(const uint8_t *data, unsigned size)
 {
 	return av_crc(av_crc_get_table(AV_CRC_32_IEEE), -1, data, size);
 }
 
-int scte_35_enc::encode( unsigned char* out_buf, int &len)
+int scte_35_enc::encode( unsigned char* out_buf, int &len, uint8_t command)
 {
 	uint64_t bitbuf = 0;
 	unsigned char *buf_pivot = out_buf;

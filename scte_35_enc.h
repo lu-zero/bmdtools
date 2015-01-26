@@ -1,6 +1,7 @@
 #ifndef __scte_35_enc_H
 #define __scte_35_enc_H
 #include <stdint.h>
+
 struct insertParam
 {
 	int32_t event_id;
@@ -49,8 +50,8 @@ class scte_35_enc
 	int encode_private_command(uint8_t *out_buf,int len);
 	public:
 	scte_35_enc(void);
-	int encode( unsigned char* out_buf, int &len);
-	void set_command(unsigned int cmd);
+	int encode( unsigned char* out_buf, int &len, uint8_t commad);
+	int set_insert_type(uint8_t type);
 	int set_event_param(uint32_t event_id,
 			uint16_t unique_program_id,
 			uint16_t pre_roll_time,
@@ -58,6 +59,7 @@ class scte_35_enc
 			uint8_t avail_num,
 			uint8_t  avails_expected,
 			uint8_t auto_return_flag);
+	void set_scte35_protocol_version(uint8_t protocol_version);
 
 };
 
