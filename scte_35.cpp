@@ -106,6 +106,7 @@ int SCTE_35::parse_multi_operation_message(const uint8_t *buf, int len)
         buf += 2;
 
         fprintf(log, "messageSize 0x%hx %hd  %dbytes\n",mSize,mSize,len);
+        fprintf(stderr, "messageSize 0x%hx %hd  %dbytes\n",mSize,mSize,len);
         if (len < mSize) {
                 fprintf(log, "***** Buffer break (len(%d) < mSize(%d) ****\n", len, mSize);
                 return -1;
@@ -178,7 +179,7 @@ int SCTE_35::parse_single_operation_message(const uint8_t *buf, int len)
         buf++;
         //printf("AS_index %hhx = %hhd\n",AV_RB8(buf), AV_RB8(buf));
         buf++;
-        fprintf(log, "message Number %hhx = %hhu\n",AV_RB8(buf), AV_RB8(buf));
+        //fprintf(log, "message Number %hhx = %hhu\n",AV_RB8(buf), AV_RB8(buf));
         buf++;
         //printf("DPI_PID_index %hx = %hd\n",AV_RB16(buf), AV_RB16(buf));
         buf += 2;
@@ -198,7 +199,8 @@ int SCTE_35::parse_scte104message(const uint8_t *buf, int len)
                 fprintf(log, "***** Buffer break ****\n");
                 return -1;
         }
-        fprintf(log, "payload_desc %hhd\n",*buf++);
+        //fprintf(log, "payload_desc %hhd\n",*buf++);
+	buf++;
         if(AV_RB16(buf) == 0xffff)
                 ret = parse_multi_operation_message(buf, len);
         else
@@ -240,8 +242,7 @@ int SCTE_35::extract(IDeckLinkVideoInputFrame* arrivedFrame, AVPacket &pkt)
                 ret = parse_scte104message(pkt_buff + i, len);
                 i += ret;
                 ret = encode(output, pkt.size, command);
-		fprintf(stderr, "SCTE encoder Got some data %d\n",ret);
-		if (ret >= 0)
+		if (ret > 20)
 			fprintf(stderr, "SCTE encoder Got some data %d\n",ret);
         }
 
