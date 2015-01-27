@@ -196,15 +196,16 @@ static unsigned crc32(const uint8_t *data, unsigned size)
 	return av_crc(av_crc_get_table(AV_CRC_32_IEEE), -1, data, size);
 }
 
-int scte_35_enc::encode( unsigned char* out_buf, int &len, uint8_t command)
+int scte_35_enc::encode( const uint8_t *q, int &len, uint8_t command)
 {
 	uint64_t bitbuf = 0;
-	unsigned char *buf_pivot = out_buf;
+	uint8_t *bit_mark;
+	const uint8_t *q_pivot = q;
 	int ret = 0;
 	uint32_t crc;
 
-	*out_buf = 0xfc;
-	out_buf++;
+	*q = 0xfc;
+	q++;
 	bitbuf <<= 1;
 	bitbuf |= section_syntax_indicator;
 	bitbuf <<= 1;
@@ -222,46 +223,52 @@ int scte_35_enc::encode( unsigned char* out_buf, int &len, uint8_t command)
 	bitbuf |= encryption_algorithm;
 	bitbuf <<= 33;
 	bitbuf |= pts_adjustment;
-	AV_WB64(out_buf, bitbuf);
-	out_buf += 8;
+	AV_WB64(q, bitbuf);
+	q += 8;
+	/* saving bit mark to put command length later */
+	bit_mark = q;
+	q += 4;
+
+	*q = command;
+	q++;
+	switch(command) {
+		case 0x00:
+			/* NULL packet do nothing */
+			break;
+		case 0x04:
+			ret = encode_splice_schedule(q, len);
+			break;
+		case 0x05:
+			ret = encode_splice_insert(q, len);
+			break;
+		case 0x06:
+			ret = encode_time_signal(q, len);
+			break;
+		case 0x07:
+			ret = encode_bandwidth_reservation(q, len);
+			break;
+		case 0xff:
+			ret = encode_private_command(q, len);
+			break;
+	}
+	q += ret;
 
 	bitbuf = 0;
 	bitbuf |= cw_index;
 	bitbuf <<= 12;
 	bitbuf |= tier;
 	bitbuf <<= 12;
+	splice_command_length = ret+1;
 	bitbuf |= splice_command_length;
-	AV_WB32(out_buf, bitbuf);
-	out_buf += 4;
+	AV_WB32(bit_mark, bitbuf);
 
-	*out_buf = splice_command_type;
-	out_buf++;
-	switch(splice_command_type) {
-		case 0x00:
-			/* NULL packet do nothing */
-			break;
-		case 0x04:
-			ret = encode_splice_schedule(out_buf, len);
-			break;
-		case 0x05:
-			ret = encode_splice_insert(out_buf, len);
-			break;
-		case 0x06:
-			ret = encode_time_signal(out_buf, len);
-			break;
-		case 0x07:
-			ret = encode_bandwidth_reservation(out_buf, len);
-			break;
-		case 0xff:
-			ret = encode_private_command(out_buf, len);
-			break;
-	}
-	out_buf += ret;
-	AV_WB16(out_buf, descriptor_loop_length);
-	out_buf += 2;
-	crc = crc32(buf_pivot, out_buf - buf_pivot);
-	AV_WB32(out_buf, crc);
-	out_buf += 4;
-	len = out_buf - buf_pivot;
-	return out_buf - buf_pivot;
+
+	AV_WB16(q, descriptor_loop_length);
+	q += 2;
+
+	crc = crc32(q_pivot, q - q_pivot);
+	AV_WB32(q, crc);
+	q += 4;
+	len = q - q_pivot;
+	return q - q_pivot;
 }
