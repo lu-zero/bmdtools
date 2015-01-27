@@ -58,6 +58,7 @@ int SCTE_35::parse_splice_request_data(const uint8_t *buf, int len)
         auto_return_flag = AV_RB8(buf);
         buf++;
 
+	set_insert_type(insert_type);
 	set_event_param(event_id, unique_program_id, pre_roll_time, break_duration, avail_num, avails_expected, auto_return_flag);
 
         return buf - buf_pivot;
