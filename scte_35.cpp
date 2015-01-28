@@ -40,7 +40,10 @@ int SCTE_35::parse_splice_request_data(const uint8_t *buf, int len)
         uint8_t avails_expected;
         uint8_t auto_return_flag;
 
-        fprintf(log, "insert_type = %d\n",insert_type);
+        fprintf(stderr, "insert_type = %d\n",insert_type);
+
+	if(len < 14)
+		return -1;
         event_id = AV_RB32(buf);
         buf += 4;
         unique_program_id = AV_RB16(buf);
@@ -99,6 +102,7 @@ int SCTE_35::parse_multi_operation_message(const uint8_t *buf, int len)
         int nb_op;
         int i,data_length,opId;
 	uint8_t protocol_version;
+	int ret = 0;
 
         /* reserved */
         buf += 2;
@@ -138,15 +142,23 @@ int SCTE_35::parse_multi_operation_message(const uint8_t *buf, int len)
                 buf +=2;
                 switch(opId){
                 case 0x0101:
-                        parse_splice_request_data(buf, data_length);
+                        ret = parse_splice_request_data(buf, data_length);
 			command = 0x05;
                         break;
                 default:
                         break;
                 }
+		if (ret < 0) {
+			fprintf(stderr, "Invalid length of buf for opID%d", opId);
+			break;
+		}
                 buf += data_length;
         }
-        return buf - buf_pivot;
+
+	if (ret < 0)
+		return -1;
+	else
+		return buf - buf_pivot;
 }
 
 int SCTE_35::parse_single_operation_message(const uint8_t *buf, int len)
@@ -203,9 +215,9 @@ int SCTE_35::parse_scte104message(const uint8_t *buf, int len)
         //fprintf(log, "payload_desc %hhd\n",*buf++);
 	buf++;
         if(AV_RB16(buf) == 0xffff)
-                ret = parse_multi_operation_message(buf, len);
+                ret = parse_multi_operation_message(buf, len - 1);
         else
-                ret = parse_single_operation_message(buf, len);
+                ret = parse_single_operation_message(buf, len - 1);
 
         fprintf(log, "\n");
         return ret + (buf -  buf_pivot);
@@ -240,7 +252,7 @@ int SCTE_35::extract(IDeckLinkVideoInputFrame* arrivedFrame, AVPacket &pkt)
         }
 	for(int i = 0; i < len; i ++)
 	{
-                ret = parse_scte104message(pkt_buff + i, len);
+                ret = parse_scte104message(pkt_buff + i, len - i);
                 i += ret;
                 ret = encode(output, pkt.size, command);
 		if (ret > 20)

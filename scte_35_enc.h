@@ -50,7 +50,7 @@ class scte_35_enc
 	int encode_private_command(uint8_t *out_buf,int len);
 	public:
 	scte_35_enc(void);
-	int encode( unsigned char* out_buf, int &len, uint8_t commad);
+	int encode( uint8_t *q, int &len, uint8_t commandi);
 	int set_insert_type(uint8_t type);
 	int set_event_param(uint32_t event_id,
 			uint16_t unique_program_id,

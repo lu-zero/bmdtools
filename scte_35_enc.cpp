@@ -196,7 +196,7 @@ static unsigned crc32(const uint8_t *data, unsigned size)
 	return av_crc(av_crc_get_table(AV_CRC_32_IEEE), -1, data, size);
 }
 
-int scte_35_enc::encode( const uint8_t *q, int &len, uint8_t command)
+int scte_35_enc::encode( uint8_t *q, int &len, uint8_t command)
 {
 	uint64_t bitbuf = 0;
 	uint8_t *bit_mark;
