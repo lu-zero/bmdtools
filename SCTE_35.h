@@ -11,6 +11,7 @@ extern "C" {
 class SCTE_35:public scte_35_enc
 {
 	uint8_t command;
+	bool command_set_flag;
 	unsigned char *pkt_buff;
 	int pkt_buff_len;
 	class VncPacket vnc;

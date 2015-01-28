@@ -26,14 +26,12 @@ class scte_35_enc
 	int section_syntax_indicator:1;
 	int private_indicator:1;
 	int reserved:2;
-	int section_length:12;
 	int protocol_version:8;
 	int encrypted_packet:1;
 	int encryption_algorithm:6;
 	long long pts_adjustment:33;
 	unsigned int cw_index:8;
 	unsigned int tier:12;
-	unsigned int splice_command_length:12;
 	unsigned int splice_command_type:8;
 	unsigned int descriptor_loop_length:16;
 	unsigned int alignment_stuffing:8;
@@ -48,6 +46,7 @@ class scte_35_enc
 	int encode_time_signal(uint8_t *out_buf, int len);
 	int encode_bandwidth_reservation(uint8_t *out_buf, int len);
 	int encode_private_command(uint8_t *out_buf,int len);
+	int encode_cmd(uint8_t *q, int len, uint8_t command);
 	public:
 	scte_35_enc(void);
 	int encode( uint8_t *q, int &len, uint8_t commandi);
@@ -63,5 +62,13 @@ class scte_35_enc
 
 };
 
+enum scte_35_command {
+	SCTE_35_CMD_NULL	= 	0x00,
+	SCTE_35_CMD_SCHEDULE	= 	0X04,
+	SCTE_35_CMD_INSERT	= 	0x05,
+	SCTE_35_CMD_TIME_SIGNAL = 	0x06,
+	SCTE_35_CMD_BW_RESERVE	= 	0x07,
+	SCTE_35_CMD_PRIVATE 	= 	0xFF,
+};
 
 #endif

@@ -20,6 +20,7 @@ scte_35_enc::scte_35_enc(void)
 	/* initialized with NUll command */
 	splice_command_type = 0;
 	descriptor_loop_length = 0;
+	set_event_param(0xFFFFFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0, 0, 0);
 
 }
 
@@ -196,16 +197,49 @@ static unsigned crc32(const uint8_t *data, unsigned size)
 	return av_crc(av_crc_get_table(AV_CRC_32_IEEE), -1, data, size);
 }
 
+int scte_35_enc::encode_cmd(uint8_t *q, int len, uint8_t command)
+{
+	int ret = 0;
+	switch(command) {
+		case SCTE_35_CMD_NULL:
+			/* NULL packet do nothing */
+			break;
+		case SCTE_35_CMD_SCHEDULE:
+			ret = encode_splice_schedule(q, len);
+			break;
+		case SCTE_35_CMD_INSERT:
+			ret = encode_splice_insert(q, len);
+			break;
+		case SCTE_35_CMD_TIME_SIGNAL:
+			ret = encode_time_signal(q, len);
+			break;
+		case SCTE_35_CMD_BW_RESERVE:
+			ret = encode_bandwidth_reservation(q, len);
+			break;
+		case SCTE_35_CMD_PRIVATE:
+			ret = encode_private_command(q, len);
+			break;
+	}
+	return ret;
+}
 int scte_35_enc::encode( uint8_t *q, int &len, uint8_t command)
 {
 	uint64_t bitbuf = 0;
-	uint8_t *bit_mark;
 	const uint8_t *q_pivot = q;
 	int ret = 0;
 	uint32_t crc;
+	uint8_t *section_len_bit_mark;
 
-	*q = 0xfc;
-	q++;
+	int cmd_len;
+	int section_len;
+
+	cmd_len = encode_cmd (q + 13, len - 13, command);
+	/* Adding 4 bytes for crc
+	 * Ignoring Encrtpted and stuff things*/
+	section_len = 13 + cmd_len + 4;
+
+	*q++ = 0xfc;
+
 	bitbuf <<= 1;
 	bitbuf |= section_syntax_indicator;
 	bitbuf <<= 1;
@@ -223,35 +257,13 @@ int scte_35_enc::encode( uint8_t *q, int &len, uint8_t command)
 	bitbuf |= encryption_algorithm;
 	bitbuf <<= 33;
 	bitbuf |= pts_adjustment;
-	AV_WB64(q, bitbuf);
+	AV_WB64(section_len_bit_mark, bitbuf);
 	q += 8;
-	/* saving bit mark to put command length later */
-	bit_mark = q;
 	q += 4;
 
 	*q = command;
 	q++;
-	switch(command) {
-		case 0x00:
-			/* NULL packet do nothing */
-			break;
-		case 0x04:
-			ret = encode_splice_schedule(q, len);
-			break;
-		case 0x05:
-			ret = encode_splice_insert(q, len);
-			break;
-		case 0x06:
-			ret = encode_time_signal(q, len);
-			break;
-		case 0x07:
-			ret = encode_bandwidth_reservation(q, len);
-			break;
-		case 0xff:
-			ret = encode_private_command(q, len);
-			break;
-	}
-	q += ret;
+	q += cmd_len;
 
 	bitbuf = 0;
 	bitbuf |= cw_index;
@@ -260,7 +272,7 @@ int scte_35_enc::encode( uint8_t *q, int &len, uint8_t command)
 	bitbuf <<= 12;
 	splice_command_length = ret+1;
 	bitbuf |= splice_command_length;
-	AV_WB32(bit_mark, bitbuf);
+	AV_WB32(cmd_len_bit_mark, bitbuf);
 
 
 	AV_WB16(q, descriptor_loop_length);

@@ -110,7 +110,6 @@ int SCTE_35::parse_multi_operation_message(const uint8_t *buf, int len)
         mSize = AV_RB16(buf);
         buf += 2;
 
-        fprintf(log, "messageSize 0x%hx %hd  %dbytes\n",mSize,mSize,len);
         fprintf(stderr, "messageSize 0x%hx %hd  %dbytes\n",mSize,mSize,len);
         if (len < mSize) {
                 fprintf(log, "***** Buffer break (len(%d) < mSize(%d) ****\n", len, mSize);
@@ -169,7 +168,7 @@ int SCTE_35::parse_single_operation_message(const uint8_t *buf, int len)
         int dataSize;
         opId = AV_RB16(buf);
         buf += 2;
-        fprintf(log,"opID 0x%hx = %hd \n",opId,opId);
+        fprintf(stderr,"opID 0x%hx = %hd \n",opId,opId);
 
 	switch (opId) {
 	case 0x03:
@@ -254,9 +253,9 @@ int SCTE_35::extract(IDeckLinkVideoInputFrame* arrivedFrame, AVPacket &pkt)
 	{
                 ret = parse_scte104message(pkt_buff + i, len - i);
                 i += ret;
-                ret = encode(output, pkt.size, command);
-		if (ret > 20)
-			fprintf(stderr, "SCTE encoder Got some data %d\n",ret);
+		if (command_set_flag)
+			ret = encode(output, pkt.size, command);
+		command_set_flag = 0;
         }
 
 	av_hex_dump(hexdump_trunc,(uint8_t*) output, ret);
