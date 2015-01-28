@@ -2,6 +2,8 @@
 #define __CAPTURE_H__
 
 #include "DeckLinkAPI.h"
+#include "ClosedCaption.h"
+#include "SCTE_35.h"
 
 class DeckLinkCaptureDelegate : public IDeckLinkInputCallback
 {
@@ -16,8 +18,10 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE VideoInputFrameArrived(IDeckLinkVideoInputFrame*, IDeckLinkAudioInputPacket*);
 
 private:
-	ULONG				m_refCount;
+	ULONG			m_refCount;
 	pthread_mutex_t		m_mutex;
+	ClosedCaption		cc;
+	SCTE_35			scte_35;
 };
 
 #endif
