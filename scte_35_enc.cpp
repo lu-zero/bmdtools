@@ -9,14 +9,12 @@ scte_35_enc::scte_35_enc(void)
 	section_syntax_indicator = 0;
 
 	private_indicator = 0;
-	section_length = 17;
 	protocol_version = 0;
 	encrypted_packet = 0;
 	encryption_algorithm = 0;
 	pts_adjustment = 0;
 	cw_index = 0;
 	tier = 0xfff;
-	splice_command_length = 0xfff;
 	/* initialized with NUll command */
 	splice_command_type = 0;
 	descriptor_loop_length = 0;
@@ -226,9 +224,7 @@ int scte_35_enc::encode( uint8_t *q, int &len, uint8_t command)
 {
 	uint64_t bitbuf = 0;
 	const uint8_t *q_pivot = q;
-	int ret = 0;
 	uint32_t crc;
-	uint8_t *section_len_bit_mark;
 
 	int cmd_len;
 	int section_len;
@@ -247,7 +243,7 @@ int scte_35_enc::encode( uint8_t *q, int &len, uint8_t command)
 	bitbuf <<= 2;
 	bitbuf |= 0x3;
 	bitbuf <<= 12;
-	bitbuf |= section_length;
+	bitbuf |= section_len;
 	bitbuf <<= 8;
 	bitbuf |= protocol_version;
 
@@ -257,7 +253,7 @@ int scte_35_enc::encode( uint8_t *q, int &len, uint8_t command)
 	bitbuf |= encryption_algorithm;
 	bitbuf <<= 33;
 	bitbuf |= pts_adjustment;
-	AV_WB64(section_len_bit_mark, bitbuf);
+	AV_WB64(q, bitbuf);
 	q += 8;
 	q += 4;
 
@@ -270,9 +266,8 @@ int scte_35_enc::encode( uint8_t *q, int &len, uint8_t command)
 	bitbuf <<= 12;
 	bitbuf |= tier;
 	bitbuf <<= 12;
-	splice_command_length = ret+1;
-	bitbuf |= splice_command_length;
-	AV_WB32(cmd_len_bit_mark, bitbuf);
+	bitbuf |= cmd_len;
+	AV_WB32(q, bitbuf);
 
 
 	AV_WB16(q, descriptor_loop_length);
