@@ -734,6 +734,8 @@ int main(int argc, char *argv[])
             }
             break;
         case 'w':
+            wallclock = true;
+            break;
         case '?':
         case 'h':
             usage(0);
