@@ -3,6 +3,7 @@ extern "C" {
 #include "libavutil/intreadwrite.h"
 #include "libavutil/crc.h"
 }
+#include <stdio.h>
 scte_35_enc::scte_35_enc(void)
 {
 	table_id = 0xfc;

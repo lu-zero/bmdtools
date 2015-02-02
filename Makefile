@@ -41,6 +41,9 @@ LDFLAGS  = `pkg-config --libs $(PKG_DEPS)`
 CXXFLAGS+= -Wall -Wno-multichar -I $(SDK_PATH) -I./ -fno-rtti -g
 LDFLAGS += -lm -ldl -lpthread
 
+ifeq ($(ENABLE_SCTE_35),yes)
+CXXFLAGS += -DENABLE_SCTE_35
+endif
 ifeq ($(SYS), Darwin)
 CXXFLAGS+= -framework CoreFoundation -DHAVE_CFSTRING
 LDFLAGS += -framework CoreFoundation
@@ -53,7 +56,7 @@ COMMON_FILES = modes.cpp $(SDK_PATH)/DeckLinkAPIDispatch.cpp
 all: $(PROGRAMS)
 
 bmdcapture: bmdcapture.cpp closedcaption.cpp vnc_packet.cpp scte_35.cpp scte_35_enc.cpp $(COMMON_FILES)
-	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 bmdplay: bmdplay.cpp $(COMMON_FILES)
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)

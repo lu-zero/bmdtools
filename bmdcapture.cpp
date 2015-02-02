@@ -182,7 +182,10 @@ static unsigned long long avpacket_queue_size(AVPacketQueue *q)
 
 AVOutputFormat *fmt = NULL;
 AVFormatContext *oc;
-AVStream *audio_st, *video_st, *data_st, *sub_st, *scte_35_st;
+AVStream *audio_st, *video_st, *data_st, *sub_st;
+#ifdef ENABLE_SCTE_35
+AVStream *scte_35_st;
+#endif
 BMDTimeValue frameRateDuration, frameRateScale;
 
 static AVStream *add_audio_stream(AVFormatContext *oc, enum AVCodecID codec_id)
@@ -392,7 +395,9 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
     if (videoFrame) {
         AVPacket pkt;
         AVPacket sub_pkt;
+#ifdef ENABLE_SCTE_35
         AVPacket scte_35_pkt;
+#endif
         AVCodecContext *c;
         
 	av_init_packet(&pkt);
@@ -458,15 +463,12 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         pkt.data         = (uint8_t *)frameBytes;
         pkt.size         = videoFrame->GetRowBytes() *
                            videoFrame->GetHeight();
-        //fprintf(stderr,"Video Frame size %d ts %d\n", pkt.size, pkt.pts);
         c->frame_number++;
         avpacket_queue_put(&queue, &pkt);
 	if( videoFrame->GetPixelFormat() == bmdFormat10BitYUV ) { 
             av_init_packet(&sub_pkt);
-            av_init_packet(&scte_35_pkt);
 
             sub_pkt.pts = frameTime / video_st->time_base.num;
-            scte_35_pkt.pts = frameTime / video_st->time_base.num;
 
             if (initial_video_pts == AV_NOPTS_VALUE) {
                 initial_video_pts = sub_pkt.pts;
@@ -484,8 +486,11 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
             if (ret >= 0) {
                  avpacket_queue_put(&queue, &sub_pkt);
             }
+#ifdef ENABLE_SCTE_35
+            av_init_packet(&scte_35_pkt);
+            scte_35_pkt.pts = frameTime / video_st->time_base.num;
             scte_35_pkt.pts -= initial_video_pts;
-            scte_35_pkt.dts = scte_35_pkt.pts;
+            scte_35_pkt.dts = scte_35_pkt.pts-1;
 
             scte_35_pkt.duration = frameDuration;
             scte_35_pkt.flags       |= AV_PKT_FLAG_KEY;
@@ -493,9 +498,10 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
             scte_35_pkt.data = NULL;
             scte_35_pkt.size = 0;
             ret = scte_35.extract(videoFrame, scte_35_pkt);
-            if (ret >= 0) {
+            if (ret > 0) {
                  avpacket_queue_put(&queue, &scte_35_pkt);
             }
+#endif
 	}
 
     }
@@ -522,17 +528,10 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         pkt.pts -= initial_audio_pts;
         pkt.dts = pkt.pts;
 
-        //fprintf(stderr,"Audio Frame size %d ts %d\n", pkt.size, pkt.pts);
         pkt.flags       |= AV_PKT_FLAG_KEY;
         pkt.stream_index = audio_st->index;
         pkt.data         = (uint8_t *)audioFrameBytes;
-        //pkt.size= avcodec_encode_audio(c, audio_outbuf, audio_outbuf_size, samples);
         c->frame_number++;
-        //write(audioOutputFile, audioFrameBytes, audioFrame->GetSampleFrameCount() * g_audioChannels * (g_audioSampleDepth / 8));
-/*            if (av_interleaved_write_frame(oc, &pkt) != 0) {
- *          fprintf(stderr, "Error while writing audio frame\n");
- *          exit(1);
- *      } */
         avpacket_queue_put(&queue, &pkt);
     }
 
@@ -950,11 +949,11 @@ int main(int argc, char *argv[])
     sub_st = add_subtitle_stream(oc, fmt->subtitle_codec);
     if ( !audio_st || !sub_st )
         goto bail;
-
+#ifdef ENABLE_SCTE_35
     scte_35_st = add_data_stream(oc, fmt->data_codec);
     if ( !scte_35_st)
         goto bail;
-
+#endif
     if (serial_fd > 0)
         data_st = add_data_stream(oc, AV_CODEC_ID_TEXT);
 

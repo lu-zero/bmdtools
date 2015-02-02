@@ -8,22 +8,25 @@
 #define SCTE_35_SDID 0x07
 
 using namespace std;
+#ifdef TIME_ANALYSIS
+void print_time(time_t tt) {
+    char buf[80];
+    struct tm* st = localtime(&tt);
+    strftime(buf, 80, "%c", st);
+    fprintf(stderr, "%s\n", buf);
+}
+#endif
 SCTE_35::SCTE_35(void)
 {
 	pkt_buff = NULL;
 	pkt_buff_len = 0;
 	vnc.set_param(LINE, SCTE_35_DID, SCTE_35_SDID);
 	output = new uint8_t[512]; 
-	file.open ("scte.dat",ios::binary |ios::out);
-	log = fopen("scte.log", "w");
-	hexdump_trunc = fopen("scte_trunc.hex", "w");
 }
 SCTE_35::~SCTE_35(void)
 {
 	if (pkt_buff)
 		free(pkt_buff);
-  	file.close();
-	fclose(hexdump_trunc);
 	delete output;
 }
 
@@ -49,10 +52,8 @@ int SCTE_35::parse_splice_request_data(const uint8_t *buf, int len)
         unique_program_id = AV_RB16(buf);
         buf += 2;
         pre_roll_time = AV_RB16(buf);
-        fprintf(log, "pre_roll = %d\n",pre_roll_time);
         buf += 2;
         break_duration = AV_RB16(buf);
-        fprintf(log, "break_duration = %d\n",break_duration);
         buf += 2;
         avail_num = AV_RB8(buf);
         buf++;
@@ -72,23 +73,23 @@ int SCTE_35::parse_timestamp(const uint8_t *buf, int len)
         const uint8_t *buf_pivot = buf;
         int type = *buf++;
         if (type == 0) {
-                fprintf(log, "Time: Immediate\n");
+                fprintf(stderr, "Time: Immediate\n");
         } else if(type == 1) {
 
-                fprintf(log, "UTC_seconds %x = %d\n",AV_RB32(buf), AV_RB32(buf));
+                fprintf(stderr, "UTC_seconds %x = %d\n",AV_RB32(buf), AV_RB32(buf));
                 buf +=4;
-                fprintf(log, "UTC_microseconds %hx = %hd\n",AV_RB16(buf), AV_RB16(buf));
+                fprintf(stderr, "UTC_microseconds %hx = %hd\n",AV_RB16(buf), AV_RB16(buf));
                 buf +=2;
         } else if (type == 2) {
-                fprintf(log, "hours  %hhd\n",*buf++);
-                fprintf(log, "minute %hhd\n",*buf++);
-                fprintf(log, "second %hhd\n",*buf++);
-                fprintf(log, "frames %hhd\n",*buf++);
+                fprintf(stderr, "hours  %hhd\n",*buf++);
+                fprintf(stderr, "minute %hhd\n",*buf++);
+                fprintf(stderr, "second %hhd\n",*buf++);
+                fprintf(stderr, "frames %hhd\n",*buf++);
         } else if (type == 3) {
-                fprintf(log, "second %hhd\n",*buf++);
-                fprintf(log, "frames %hhd\n",*buf++);
+                fprintf(stderr, "second %hhd\n",*buf++);
+                fprintf(stderr, "frames %hhd\n",*buf++);
         } else {
-                fprintf(log, "check CRC packet corrupted or updated version\n");
+                fprintf(stderr, "check CRC packet corrupted or updated version\n");
         }
 
         return buf - buf_pivot;
@@ -112,7 +113,6 @@ int SCTE_35::parse_multi_operation_message(const uint8_t *buf, int len)
 
         fprintf(stderr, "messageSize 0x%hx %hd  %dbytes\n",mSize,mSize,len);
         if (len < mSize) {
-                fprintf(log, "***** Buffer break (len(%d) < mSize(%d) ****\n", len, mSize);
                 return -1;
         }
 
@@ -120,7 +120,7 @@ int SCTE_35::parse_multi_operation_message(const uint8_t *buf, int len)
         buf++;
         //printf("AS_index %hhx = %hhd\n",AV_RB8(buf), AV_RB8(buf));
         buf++;
-        fprintf(log, "message Number %hhx = %hhu\n",AV_RB8(buf), AV_RB8(buf));
+        //fprintf(log, "message Number %hhx = %hhu\n",AV_RB8(buf), AV_RB8(buf));
         buf++;
 
         //printf("DPI_PID_index %hx = %hd\n",AV_RB16(buf), AV_RB16(buf));
@@ -134,7 +134,6 @@ int SCTE_35::parse_multi_operation_message(const uint8_t *buf, int len)
 
         nb_op = *buf++;
         for (i = 0; i < nb_op; i++ ) {
-                fprintf(log, "opId  0x%hx\n", opId);
                 opId= AV_RB16(buf);
                 buf +=2;
                 data_length= AV_RB16(buf);
@@ -143,6 +142,7 @@ int SCTE_35::parse_multi_operation_message(const uint8_t *buf, int len)
                 case 0x0101:
                         ret = parse_splice_request_data(buf, data_length);
 			command = 0x05;
+			command_set_flag  = 1;
                         break;
                 default:
                         break;
@@ -166,14 +166,18 @@ int SCTE_35::parse_single_operation_message(const uint8_t *buf, int len)
         const uint8_t *buf_pivot = buf;
         int mSize = 0;
         int dataSize;
+#ifdef TIME_ANALYSIS
+	time_t t = time(NULL);
+	print_time(t);
+#endif
         opId = AV_RB16(buf);
         buf += 2;
-        fprintf(stderr,"opID 0x%hx = %hd \n",opId,opId);
 
 	switch (opId) {
 	case 0x03:
 		/* set NULL scte-35 cmd */
 		command = 0x00;
+		command_set_flag  = 1;
 		break;
 	default:
 		break;
@@ -208,7 +212,6 @@ int SCTE_35::parse_scte104message(const uint8_t *buf, int len)
         const uint8_t *buf_pivot = buf;
         int ret;
         if (len < 5) {
-                fprintf(log, "***** Buffer break ****\n");
                 return -1;
         }
         //fprintf(log, "payload_desc %hhd\n",*buf++);
@@ -218,7 +221,6 @@ int SCTE_35::parse_scte104message(const uint8_t *buf, int len)
         else
                 ret = parse_single_operation_message(buf, len - 1);
 
-        fprintf(log, "\n");
         return ret + (buf -  buf_pivot);
 
 }
@@ -228,11 +230,12 @@ int SCTE_35::extract(IDeckLinkVideoInputFrame* arrivedFrame, AVPacket &pkt)
 	uint16_t *data = NULL;
 	int len;
 	int ret;
-	unsigned char output[1024];
 
 	ret = vnc.extract(arrivedFrame, data);
-	if(ret < 0 )
+	if(ret < 0 ) {
+		pkt.data = output;
 		return ret;
+        }
 
 	if( pkt_buff_len < ret )
 	{
@@ -244,7 +247,6 @@ int SCTE_35::extract(IDeckLinkVideoInputFrame* arrivedFrame, AVPacket &pkt)
 
 	}
 	len = ret;
-	file.write((char*)data, ret*2);
         for(int i = 0; i < ret; i ++)
 	{
                 pkt_buff[i] = data[i] & 0xff;
@@ -255,10 +257,11 @@ int SCTE_35::extract(IDeckLinkVideoInputFrame* arrivedFrame, AVPacket &pkt)
                 i += ret;
 		if (command_set_flag)
 			ret = encode(output, pkt.size, command);
+		else
+			ret =  0;
 		command_set_flag = 0;
         }
 
-	av_hex_dump(hexdump_trunc,(uint8_t*) output, ret);
 	pkt.data = output;
 	return ret;
 }

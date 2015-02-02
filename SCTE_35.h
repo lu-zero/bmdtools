@@ -15,11 +15,7 @@ class SCTE_35:public scte_35_enc
 	unsigned char *pkt_buff;
 	int pkt_buff_len;
 	class VncPacket vnc;
-	std::ofstream file;
 	uint8_t *output;
-	FILE *log;
-	FILE *hexdump;
-	FILE *hexdump_trunc;
 	int parse_multi_operation_message(const uint8_t *buf, int len);
 	int parse_single_operation_message(const uint8_t *buf, int len);
 	int parse_timestamp(const uint8_t *buf, int len);
