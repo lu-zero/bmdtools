@@ -38,6 +38,7 @@ class scte_35_enc
 	unsigned int E_CRC_32:32;
 	unsigned int CRC_32:32;
 
+	int enc_hack;
 	struct insertParam insert_param;
 	int encode_break_duration(uint8_t *q, int len);
 	int encode_splice_time(uint8_t *q, int len);
@@ -47,21 +48,29 @@ class scte_35_enc
 	int encode_bandwidth_reservation(uint8_t *out_buf, int len);
 	int encode_private_command(uint8_t *out_buf,int len);
 	int encode_cmd(uint8_t *q, int len, uint8_t command);
+	int set_insert_type(uint8_t type);
 	public:
 	scte_35_enc(void);
 	int encode( uint8_t *q, int &len, uint8_t commandi);
-	int set_insert_type(uint8_t type);
-	int set_event_param(uint32_t event_id,
+	int set_event_param(uint8_t insert_type,
+			uint32_t event_id,
 			uint16_t unique_program_id,
 			uint16_t pre_roll_time,
 			uint16_t break_duration,
 			uint8_t avail_num,
 			uint8_t  avails_expected,
-			uint8_t auto_return_flag);
+			uint8_t auto_return_flag,
+			uint64_t pts);
 	void set_scte35_protocol_version(uint8_t protocol_version);
 
 };
 
+enum scte_104_splice_insert_type {
+	INSERT_TYPE_SPLICE_START_NORMAL = 1,
+	INSERT_TYPE_SPLICE_START_IMMIDIATE,
+	INSERT_TYPE_SPLICE_END_NORMAL,
+	INSERT_TYPE_SPLICE_END_IMMIDIATE,
+};
 enum scte_35_command {
 	SCTE_35_CMD_NULL	= 	0x00,
 	SCTE_35_CMD_SCHEDULE	= 	0X04,

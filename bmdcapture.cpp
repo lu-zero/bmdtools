@@ -468,7 +468,7 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
 	if( videoFrame->GetPixelFormat() == bmdFormat10BitYUV ) { 
             av_init_packet(&sub_pkt);
 
-            sub_pkt.pts = frameTime / video_st->time_base.num;
+            sub_pkt.pts = frameTime / video_st->time_base.num + 1;
 
             if (initial_video_pts == AV_NOPTS_VALUE) {
                 initial_video_pts = sub_pkt.pts;
@@ -488,9 +488,9 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
             }
 #ifdef ENABLE_SCTE_35
             av_init_packet(&scte_35_pkt);
-            scte_35_pkt.pts = frameTime / video_st->time_base.num;
+            scte_35_pkt.pts = frameTime / video_st->time_base.num + 2;
             scte_35_pkt.pts -= initial_video_pts;
-            scte_35_pkt.dts = scte_35_pkt.pts-1;
+            scte_35_pkt.dts = scte_35_pkt.pts;
 
             scte_35_pkt.duration = frameDuration;
             scte_35_pkt.flags       |= AV_PKT_FLAG_KEY;

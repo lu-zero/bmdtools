@@ -34,7 +34,7 @@ int SCTE_35::parse_splice_request_data(const uint8_t *buf, int len)
 {
         const uint8_t *buf_pivot = buf;
 
-        int insert_type = *buf++;
+        uint8_t insert_type = *buf++;
         uint32_t event_id;
         uint16_t unique_program_id;
         uint16_t pre_roll_time;
@@ -62,8 +62,10 @@ int SCTE_35::parse_splice_request_data(const uint8_t *buf, int len)
         auto_return_flag = AV_RB8(buf);
         buf++;
 
-	set_insert_type(insert_type);
-	set_event_param(event_id, unique_program_id, pre_roll_time, break_duration, avail_num, avails_expected, auto_return_flag);
+        fprintf(stderr, "break_duration = %d\n",break_duration);
+	set_event_param(insert_type, event_id, unique_program_id,
+		pre_roll_time, break_duration, avail_num,
+		avails_expected, auto_return_flag, this->current_pts);
 
         return buf - buf_pivot;
 }
@@ -73,7 +75,7 @@ int SCTE_35::parse_timestamp(const uint8_t *buf, int len)
         const uint8_t *buf_pivot = buf;
         int type = *buf++;
         if (type == 0) {
-                fprintf(stderr, "Time: Immediate\n");
+		/* use pkt pts */
         } else if(type == 1) {
 
                 fprintf(stderr, "UTC_seconds %x = %d\n",AV_RB32(buf), AV_RB32(buf));
@@ -233,6 +235,7 @@ int SCTE_35::extract(IDeckLinkVideoInputFrame* arrivedFrame, AVPacket &pkt)
 
 	ret = vnc.extract(arrivedFrame, data);
 	if(ret < 0 ) {
+		ret = encode(output, pkt.size, 0x00);
 		pkt.data = output;
 		return ret;
         }
@@ -246,11 +249,12 @@ int SCTE_35::extract(IDeckLinkVideoInputFrame* arrivedFrame, AVPacket &pkt)
 			pkt_buff_len = ret;
 
 	}
-	len = ret;
         for(int i = 0; i < ret; i ++)
 	{
                 pkt_buff[i] = data[i] & 0xff;
         }
+	this->current_pts = pkt.pts;
+	len = ret;
 	for(int i = 0; i < len; i ++)
 	{
                 ret = parse_scte104message(pkt_buff + i, len - i);

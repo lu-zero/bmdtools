@@ -16,6 +16,7 @@ class SCTE_35:public scte_35_enc
 	int pkt_buff_len;
 	class VncPacket vnc;
 	uint8_t *output;
+	uint64_t current_pts;
 	int parse_multi_operation_message(const uint8_t *buf, int len);
 	int parse_single_operation_message(const uint8_t *buf, int len);
 	int parse_timestamp(const uint8_t *buf, int len);

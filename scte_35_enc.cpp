@@ -19,18 +19,27 @@ scte_35_enc::scte_35_enc(void)
 	/* initialized with NUll command */
 	splice_command_type = 0;
 	descriptor_loop_length = 0;
-	set_event_param(0xFFFFFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0, 0, 0);
+	enc_hack = 1;
 
 }
 
-int scte_35_enc::set_event_param(uint32_t event_id,
+int scte_35_enc::set_event_param(uint8_t insert_type,
+			uint32_t event_id,
 			uint16_t unique_program_id,
 			uint16_t pre_roll_time,
 			uint16_t break_duration,
-			uint8_t avail_num,
+			uint8_t  avail_num,
 			uint8_t  avails_expected,
-			uint8_t auto_return_flag)
+			uint8_t  auto_return_flag,
+			uint64_t pts)
 {
+	set_insert_type(insert_type);
+	if ( insert_type == INSERT_TYPE_SPLICE_START_NORMAL ||
+		insert_type == INSERT_TYPE_SPLICE_END_NORMAL) {
+		insert_param.pts_time = pts + pre_roll_time;
+	} else {
+		insert_param.pts_time = pts;
+	}
 	insert_param.event_id = event_id;
 	insert_param.unique_program_id = unique_program_id;
 	insert_param.avail_num = avail_num;
@@ -80,8 +89,11 @@ int scte_35_enc::encode_splice_time(uint8_t *q, int len)
 	return q - q_pivot;
 }
 
-int scte_35_enc::encode_splice_schedule(uint8_t *out_buf,int len)
+int scte_35_enc::encode_splice_schedule(uint8_t *q,int len)
 {
+	uint8_t *q_pivot = q;
+	*q = SCTE_35_CMD_SCHEDULE;
+	q++;
 	return 0;
 }
 int scte_35_enc::encode_splice_insert(uint8_t *q, int len)
@@ -100,7 +112,6 @@ int scte_35_enc::encode_splice_insert(uint8_t *q, int len)
 
 	if (!insert_param.event_cancel_indicator) {
 		byte_8 = 0;
-
 		byte_8 |= insert_param.out_of_network_indicator;
 		byte_8 <<= 1;
 		byte_8 |= insert_param.program_splice_flag;
@@ -156,6 +167,12 @@ void scte_35_enc::set_scte35_protocol_version(uint8_t protocol_version)
 }
 int scte_35_enc::set_insert_type(uint8_t type)
 {
+	if ( this->enc_hack) {
+		if(type == 0x01)
+			type = 0x02;
+		if(type == 0x03 )
+			type = 0x04;
+	}
 	if (type == 0x00) {
 	/* DO nothing */
 	} else if (type == 0x01) {
@@ -230,10 +247,10 @@ int scte_35_enc::encode( uint8_t *q, int &len, uint8_t command)
 	int cmd_len;
 	int section_len;
 
-	cmd_len = encode_cmd (q + 13, len - 13, command);
+	cmd_len = encode_cmd (q + 14, len - 13, command);
 	/* Adding 4 bytes for crc
 	 * Ignoring Encrtpted and stuff things*/
-	section_len = 13 + cmd_len + 4;
+	section_len = 11 + cmd_len + 6;
 
 	*q++ = 0xfc;
 
@@ -256,11 +273,6 @@ int scte_35_enc::encode( uint8_t *q, int &len, uint8_t command)
 	bitbuf |= pts_adjustment;
 	AV_WB64(q, bitbuf);
 	q += 8;
-	q += 4;
-
-	*q = command;
-	q++;
-	q += cmd_len;
 
 	bitbuf = 0;
 	bitbuf |= cw_index;
@@ -269,7 +281,12 @@ int scte_35_enc::encode( uint8_t *q, int &len, uint8_t command)
 	bitbuf <<= 12;
 	bitbuf |= cmd_len;
 	AV_WB32(q, bitbuf);
+	q += 4;
 
+	*q = command;
+	q++;
+
+	q += cmd_len;
 
 	AV_WB16(q, descriptor_loop_length);
 	q += 2;
