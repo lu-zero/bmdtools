@@ -19,6 +19,7 @@ scte_35_enc::scte_35_enc(void)
 	/* initialized with NUll command */
 	splice_command_type = 0;
 	descriptor_loop_length = 0;
+	insert_param.program_splice_flag = 1;
 	enc_hack = 1;
 
 }
