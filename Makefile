@@ -40,10 +40,8 @@ LDFLAGS  = `pkg-config --libs $(PKG_DEPS)`
 
 CXXFLAGS+= -Wall -Wno-multichar -I $(SDK_PATH) -I./ -fno-rtti -g
 LDFLAGS += -lm -ldl -lpthread
-
-ifeq ($(ENABLE_SCTE_35),yes)
 CXXFLAGS += -DENABLE_SCTE_35
-endif
+
 ifeq ($(SYS), Darwin)
 CXXFLAGS+= -framework CoreFoundation -DHAVE_CFSTRING
 LDFLAGS += -framework CoreFoundation
