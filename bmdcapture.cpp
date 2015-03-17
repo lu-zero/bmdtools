@@ -258,7 +258,7 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
     c->time_base.num = frameRateDuration;
     c->pix_fmt       = pix_fmt;
 
-    if (codec_id == AV_CODEC_ID_V210)
+    if (codec_id == AV_CODEC_ID_V210 || codec_id == AV_CODEC_ID_R210)
         c->bits_per_raw_sample = 10;
     // some formats want stream headers to be separate
     if (oc->oformat->flags & AVFMT_GLOBALHEADER) {
@@ -266,17 +266,17 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
     }
 
     /* find the video encoder */
-    codec = avcodec_find_encoder(c->codec_id);
-    if (!codec) {
-        fprintf(stderr, "codec not found\n");
-        exit(1);
-    }
+    //codec = avcodec_find_encoder(c->codec_id);
+    //if (!codec) {
+    //    fprintf(stderr, "codec not found\n");
+    //    exit(1);
+    //}
 
     /* open the codec */
-    if (avcodec_open2(c, codec, NULL) < 0) {
-        fprintf(stderr, "could not open codec\n");
-        exit(1);
-    }
+    // if (avcodec_open2(c, codec, NULL) < 0) {
+    //    fprintf(stderr, "could not open codec\n");
+    //    exit(1);
+    //}
 
     return st;
 }
@@ -580,7 +580,7 @@ int usage(int status)
         "    -F <format>          Define the file format to be used\n"
         "    -c <channels>        Audio Channels (2, 8 or 16 - default is 2)\n"
         "    -s <depth>           Audio Sample Depth (16 or 32 - default is 16)\n"
-        "    -p <pixel>           PixelFormat Depth (8 or 10 - default is 8)\n"
+        "    -p <pixel>           PixelFormat (yuv8, yuv10, rgb10)\n"
         "    -n <frames>          Number of frames to capture (default is unlimited)\n"
         "    -M <memlimit>        Maximum queue size in GB (default is 1 GB)\n"
         "    -C <num>             number of card to be used\n"
@@ -689,13 +689,29 @@ int main(int argc, char *argv[])
             switch (atoi(optarg)) {
             case  8:
                 pix     = bmdFormat8BitYUV;
-                pix_fmt = PIX_FMT_UYVY422;
+                pix_fmt = AV_PIX_FMT_UYVY422;
                 break;
             case 10:
                 pix     = bmdFormat10BitYUV;
-                pix_fmt = PIX_FMT_YUV422P10;
+                pix_fmt = AV_PIX_FMT_YUV422P10;
                 break;
             default:
+                if (!strcmp("rgb10", optarg)) {
+                    pix     = bmdFormat10BitRGB;
+                    pix_fmt = AV_PIX_FMT_RGB48;
+                    break;
+                }
+                if (!strcmp("yuv10", optarg)) {
+                    pix     = bmdFormat10BitYUV;
+                    pix_fmt = AV_PIX_FMT_YUV422P10;
+                    break;
+                }
+                if (!strcmp("yuv8", optarg)) {
+                    pix     = bmdFormat8BitYUV;
+                    pix_fmt = AV_PIX_FMT_UYVY422;
+                    break;
+                }
+
                 fprintf(
                     stderr,
                     "Invalid argument: Pixel Format Depth must be either 8 bits or 10 bits\n");
@@ -895,7 +911,19 @@ int main(int argc, char *argv[])
 
     snprintf(oc->filename, sizeof(oc->filename), "%s", g_videoOutputFile);
 
-    fmt->video_codec = (pix == bmdFormat8BitYUV ? AV_CODEC_ID_RAWVIDEO : AV_CODEC_ID_V210);
+
+    switch (pix) {
+    case bmdFormat8BitYUV:
+        fmt->video_codec = AV_CODEC_ID_RAWVIDEO;
+        break;
+    case bmdFormat10BitYUV:
+        fmt->video_codec = AV_CODEC_ID_V210;
+        break;
+    case bmdFormat10BitRGB:
+        fmt->video_codec = AV_CODEC_ID_R210;
+        break;
+    }
+
     fmt->audio_codec = (sample_fmt == AV_SAMPLE_FMT_S16 ? AV_CODEC_ID_PCM_S16LE : AV_CODEC_ID_PCM_S32LE);
 
     video_st = add_video_stream(oc, fmt->video_codec);
