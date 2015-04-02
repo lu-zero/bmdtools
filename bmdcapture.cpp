@@ -260,6 +260,8 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
 
     if (codec_id == AV_CODEC_ID_V210 || codec_id == AV_CODEC_ID_R210)
         c->bits_per_raw_sample = 10;
+    if (codec_id == AV_CODEC_ID_RAWVIDEO)
+        c->codec_tag = avcodec_pix_fmt_to_codec_tag(c->pix_fmt);
     // some formats want stream headers to be separate
     if (oc->oformat->flags & AVFMT_GLOBALHEADER) {
         c->flags |= CODEC_FLAG_GLOBAL_HEADER;
