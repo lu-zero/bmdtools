@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
+#include <signal.h>
 
 #include "compat.h"
 #include "DeckLinkAPI.h"
@@ -626,6 +627,17 @@ static void *push_packet(void *ctx)
     return NULL;
 }
 
+static void exit_handler(int sig)
+{
+   pthread_cond_signal(&sleepCond);
+}
+
+static void set_signal()
+{
+    signal(SIGINT , exit_handler);
+    signal(SIGTERM, exit_handler);
+}
+
 int main(int argc, char *argv[])
 {
     IDeckLinkIterator *deckLinkIterator = CreateDeckLinkIteratorInstance();
@@ -956,6 +968,7 @@ int main(int argc, char *argv[])
 
     // Block main thread until signal occurs
     pthread_mutex_lock(&sleepMutex);
+    set_signal();
     pthread_cond_wait(&sleepCond, &sleepMutex);
     pthread_mutex_unlock(&sleepMutex);
     deckLinkInput->StopStreams();
