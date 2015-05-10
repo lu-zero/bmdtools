@@ -34,8 +34,11 @@ SYS=$(shell uname)
 
 PKG_DEPS = libavcodec libavformat libswscale libavutil
 
-CXXFLAGS = `pkg-config --cflags $(PKG_DEPS)` -D__STDC_CONSTANT_MACROS
-LDFLAGS  = `pkg-config --libs $(PKG_DEPS)`
+CXXFLAGS = $(ECXXFLAGS)
+LDFLAGS  = $(ELDFLAGS)
+
+CXXFLAGS += `pkg-config --cflags $(PKG_DEPS)` -D__STDC_CONSTANT_MACROS
+LDFLAGS  += `pkg-config --libs $(PKG_DEPS)`
 
 CXXFLAGS+= -Wno-multichar -I $(SDK_PATH) -fno-rtti -g
 LDFLAGS += -lm -ldl -lpthread
