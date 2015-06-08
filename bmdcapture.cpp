@@ -55,6 +55,7 @@ const char *g_audioOutputFile    = NULL;
 static int g_maxFrames           = -1;
 static int serial_fd             = -1;
 static int wallclock             = 0;
+static int draw_bars             = 1;
 bool g_verbose                   = false;
 unsigned long long g_memoryLimit = 1024 * 1024 * 1024;            // 1GByte(>50 sec)
 
@@ -403,18 +404,19 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
                                   video_st->time_base.den);
 
         if (videoFrame->GetFlags() & bmdFrameHasNoInputSource) {
-            unsigned bars[8] = {
-                0xEA80EA80, 0xD292D210, 0xA910A9A5, 0x90229035,
-                0x6ADD6ACA, 0x51EF515A, 0x286D28EF, 0x10801080 };
-            int width  = videoFrame->GetWidth();
-            int height = videoFrame->GetHeight();
-            unsigned *p = (unsigned *)frameBytes;
+            if (pix_fmt == AV_PIX_FMT_UYVY422 && draw_bars) {
+                unsigned bars[8] = {
+                    0xEA80EA80, 0xD292D210, 0xA910A9A5, 0x90229035,
+                    0x6ADD6ACA, 0x51EF515A, 0x286D28EF, 0x10801080 };
+                int width  = videoFrame->GetWidth();
+                int height = videoFrame->GetHeight();
+                unsigned *p = (unsigned *)frameBytes;
 
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x += 2)
-                    *p++ = bars[(x * 8) / width];
+                for (int y = 0; y < height; y++) {
+                    for (int x = 0; x < width; x += 2)
+                        *p++ = bars[(x * 8) / width];
+                }
             }
-
             if (!no_video) {
                 time(&cur_time);
                 fprintf(stderr,"%s "
@@ -601,6 +603,9 @@ int usage(int status)
         "                         6: S-Video\n"
         "    -o <optionstring>    AVFormat options\n"
         "    -w                   Embed a wallclock stream\n"
+        "    -d <filler>          When the source is offline draw a black frame or color bars\n"
+        "                         0: black frame\n"
+        "                         1: color bars\n"
         "Capture video and audio to a file.\n"
         "Raw video and audio can be sent to a pipe to avconv or vlc e.g.:\n"
         "\n"
@@ -765,6 +770,9 @@ int main(int argc, char *argv[])
             break;
         case 'w':
             wallclock = true;
+            break;
+        case 'd':
+            draw_bars = atoi(optarg);
             break;
         case '?':
         case 'h':
