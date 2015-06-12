@@ -360,6 +360,32 @@ int64_t initial_audio_pts = AV_NOPTS_VALUE;
 
 static int no_video = 0;
 
+#define CC_LINE 9
+
+
+// FIXME fail properly.
+void vanc_as_side_data(AVPacket *pkt,
+                       IDeckLinkVideoInputFrame *frame)
+{
+    IDeckLinkVideoFrameAncillary *ancillary;
+    void *buf;
+    uint8_t *vanc;
+    int len = frame->GetRowBytes();
+    int ret = 0;
+
+    ret = frame->GetAncillaryData(&ancillary);
+    if (ret < 0)
+        return;
+
+    ret = ancillary->GetBufferForVerticalBlankingLine(CC_LINE, &buf);
+    if (ret < 0)
+        return;
+
+    vanc = av_packet_new_side_data(pkt, AV_PKT_DATA_VANC, len);
+
+    memcpy(vanc, buf, len);
+}
+
 void write_data_packet(char *data, int size, int64_t pts)
 {
     AVPacket pkt;
@@ -473,6 +499,10 @@ void write_video_packet(IDeckLinkVideoInputFrame *videoFrame,
                        videoFrame->GetHeight();
     //fprintf(stderr,"Video Frame size %d ts %d\n", pkt.size, pkt.pts);
     c->frame_number++;
+
+    if (pix_fmt == AV_PIX_FMT_YUV422P10)
+        vanc_as_side_data(&pkt, videoFrame);
+
     avpacket_queue_put(&queue, &pkt);
 }
 
