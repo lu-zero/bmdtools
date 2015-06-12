@@ -373,92 +373,117 @@ void write_data_packet(char *data, int size, int64_t pts)
 }
 
 
+void write_video_packet(IDeckLinkVideoInputFrame *videoFrame,
+                        int64_t pts, int64_t duration)
+{
+    AVPacket pkt;
+    AVCodecContext *c;
+    void *frameBytes;
+    time_t cur_time;
+
+    av_init_packet(&pkt);
+    c = video_st->codec;
+    if (g_verbose && frameCount % 25 == 0) {
+        unsigned long long qsize = avpacket_queue_size(&queue);
+        fprintf(stderr,
+                "Frame received (#%lu) - Valid (%liB) - QSize %f\n",
+                frameCount,
+                videoFrame->GetRowBytes() * videoFrame->GetHeight(),
+                (double)qsize / 1024 / 1024);
+    }
+
+    videoFrame->GetBytes(&frameBytes);
+
+    if (videoFrame->GetFlags() & bmdFrameHasNoInputSource) {
+        if (pix_fmt == AV_PIX_FMT_UYVY422 && draw_bars) {
+            unsigned bars[8] = {
+                0xEA80EA80, 0xD292D210, 0xA910A9A5, 0x90229035,
+                0x6ADD6ACA, 0x51EF515A, 0x286D28EF, 0x10801080 };
+            int width  = videoFrame->GetWidth();
+            int height = videoFrame->GetHeight();
+            unsigned *p = (unsigned *)frameBytes;
+
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x += 2)
+                    *p++ = bars[(x * 8) / width];
+            }
+        }
+        if (!no_video) {
+            time(&cur_time);
+            fprintf(stderr,"%s "
+                    "Frame received (#%lu) - No input signal detected "
+                    "- Frames dropped %u - Total dropped %u\n",
+                    ctime(&cur_time),
+                    frameCount, ++dropped, ++totaldropped);
+        }
+        no_video = 1;
+    } else {
+        if (no_video) {
+            time(&cur_time);
+            fprintf(stderr, "%s "
+                    "Frame received (#%lu) - Input returned "
+                    "- Frames dropped %u - Total dropped %u\n",
+                    ctime(&cur_time),
+                    frameCount, ++dropped, ++totaldropped);
+        }
+        no_video = 0;
+    }
+
+    pkt.dts = pkt.pts = pts;
+
+    pkt.duration = duration;
+    //To be made sure it still applies
+    pkt.flags       |= AV_PKT_FLAG_KEY;
+    pkt.stream_index = video_st->index;
+    pkt.data         = (uint8_t *)frameBytes;
+    pkt.size         = videoFrame->GetRowBytes() *
+                       videoFrame->GetHeight();
+    //fprintf(stderr,"Video Frame size %d ts %d\n", pkt.size, pkt.pts);
+    c->frame_number++;
+    avpacket_queue_put(&queue, &pkt);
+}
+
+
 HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
     IDeckLinkVideoInputFrame *videoFrame, IDeckLinkAudioInputPacket *audioFrame)
 {
-    void *frameBytes;
     void *audioFrameBytes;
     BMDTimeValue frameTime;
     BMDTimeValue frameDuration;
-    time_t cur_time;
 
     frameCount++;
 
     // Handle Video Frame
     if (videoFrame) {
-        AVPacket pkt;
-        AVCodecContext *c;
-        av_init_packet(&pkt);
-        c = video_st->codec;
-        if (g_verbose && frameCount % 25 == 0) {
-            unsigned long long qsize = avpacket_queue_size(&queue);
-            fprintf(stderr,
-                    "Frame received (#%lu) - Valid (%liB) - QSize %f\n",
-                    frameCount,
-                    videoFrame->GetRowBytes() * videoFrame->GetHeight(),
-                    (double)qsize / 1024 / 1024);
-        }
-
-        videoFrame->GetBytes(&frameBytes);
+        int64_t pts;
         videoFrame->GetStreamTime(&frameTime, &frameDuration,
                                   video_st->time_base.den);
 
-        if (videoFrame->GetFlags() & bmdFrameHasNoInputSource) {
-            if (pix_fmt == AV_PIX_FMT_UYVY422 && draw_bars) {
-                unsigned bars[8] = {
-                    0xEA80EA80, 0xD292D210, 0xA910A9A5, 0x90229035,
-                    0x6ADD6ACA, 0x51EF515A, 0x286D28EF, 0x10801080 };
-                int width  = videoFrame->GetWidth();
-                int height = videoFrame->GetHeight();
-                unsigned *p = (unsigned *)frameBytes;
-
-                for (int y = 0; y < height; y++) {
-                    for (int x = 0; x < width; x += 2)
-                        *p++ = bars[(x * 8) / width];
-                }
-            }
-            if (!no_video) {
-                time(&cur_time);
-                fprintf(stderr,"%s "
-                        "Frame received (#%lu) - No input signal detected "
-                        "- Frames dropped %u - Total dropped %u\n",
-                        ctime(&cur_time),
-                        frameCount, ++dropped, ++totaldropped);
-            }
-            no_video = 1;
-        } else {
-            if (no_video) {
-                time(&cur_time);
-                fprintf(stderr, "%s "
-                        "Frame received (#%lu) - Input returned "
-                        "- Frames dropped %u - Total dropped %u\n",
-                        ctime(&cur_time),
-                        frameCount, ++dropped, ++totaldropped);
-            }
-            no_video = 0;
-        }
-
-        pkt.pts = frameTime / video_st->time_base.num;
+        pts = frameTime / video_st->time_base.num;
 
         if (initial_video_pts == AV_NOPTS_VALUE) {
-            initial_video_pts = pkt.pts;
+            initial_video_pts = pts;
         }
 
-        pkt.pts -= initial_video_pts;
-        pkt.dts = pkt.pts;
+        pts -= initial_video_pts;
 
-        pkt.duration = frameDuration;
-        //To be made sure it still applies
-        pkt.flags       |= AV_PKT_FLAG_KEY;
-        pkt.stream_index = video_st->index;
-        pkt.data         = (uint8_t *)frameBytes;
-        pkt.size         = videoFrame->GetRowBytes() *
-                           videoFrame->GetHeight();
-        //fprintf(stderr,"Video Frame size %d ts %d\n", pkt.size, pkt.pts);
-        c->frame_number++;
-        avpacket_queue_put(&queue, &pkt);
+        write_video_packet(videoFrame, pts, frameDuration);
 
+        if (serial_fd > 0) {
+            char line[8] = {0};
+            int count = read(serial_fd, line, 7);
+            if (count > 0)
+                fprintf(stderr, "read %d bytes: %s  \n", count, line);
+            else line[0] = ' ';
+            write_data_packet(line, 7, pts);
+        }
 
+        if (wallclock) {
+            int64_t t = av_gettime();
+            char line[20];
+            snprintf(line, sizeof(line), "%ld", t);
+            write_data_packet(line, strlen(line), pts);
+        }
     }
 
     // Handle Audio Frame
@@ -497,24 +522,6 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         avpacket_queue_put(&queue, &pkt);
     }
 
-    if (serial_fd > 0) {
-        char line[8] = {0};
-        int count = read(serial_fd, line, 7);
-        if (count > 0)
-            fprintf(stderr, "read %d bytes: %s  \n", count, line);
-	else line[0] = ' ';
-        write_data_packet(line, 7,
-                          frameTime / video_st->time_base.num -
-                          initial_video_pts);
-    }
-    if (wallclock) {
-        int64_t t = av_gettime();
-        char line[20];
-        snprintf(line, sizeof(line), "%ld", t);
-        write_data_packet(line, strlen(line),
-                          frameTime / video_st->time_base.num -
-                          initial_video_pts);
-    }
 
     return S_OK;
 }
