@@ -19,6 +19,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -511,7 +514,7 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
         if (wallclock) {
             int64_t t = av_gettime();
             char line[20];
-            snprintf(line, sizeof(line), "%ld", t);
+            snprintf(line, sizeof(line), "%" PRId64, t);
             write_data_packet(line, strlen(line), pts);
         }
     }
@@ -628,7 +631,7 @@ static void *push_packet(void *ctx)
 
     while (avpacket_queue_get(&queue, &pkt, 1)) {
         av_interleaved_write_frame(s, &pkt);
-        if (g_maxFrames > 0 && frameCount >= g_maxFrames ||
+        if ((g_maxFrames > 0 && frameCount >= g_maxFrames) ||
             avpacket_queue_size(&queue) > g_memoryLimit) {
             pthread_cond_signal(&sleepCond);
         }
@@ -786,9 +789,9 @@ int main(int argc, char *argv[])
     }
 
     if (serial_fd > 0 && wallclock) {
-        fprintf(stderr,
-                "Wallclock and serial are not supported together\n",
-                "Please disable either\n");
+        fprintf(stderr, "%s",
+                "Wallclock and serial are not supported together\n"
+                "Please disable either.\n");
         exit(1);
     }
 
@@ -900,7 +903,6 @@ int main(int argc, char *argv[])
         usage(0);
     }
 
-    selectedDisplayMode = -1;
     while (displayModeIterator->Next(&displayMode) == S_OK) {
         if (g_videoModeIndex == displayModeCount) {
             selectedDisplayMode = displayMode->GetDisplayMode();
@@ -908,11 +910,6 @@ int main(int argc, char *argv[])
         }
         displayModeCount++;
         displayMode->Release();
-    }
-
-    if (selectedDisplayMode < 0) {
-        fprintf(stderr, "Invalid mode %d specified\n", g_videoModeIndex);
-        goto bail;
     }
 
     result = deckLinkInput->EnableVideoInput(selectedDisplayMode, pix, 0);
