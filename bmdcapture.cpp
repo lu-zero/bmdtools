@@ -372,6 +372,37 @@ void write_data_packet(char *data, int size, int64_t pts)
     avpacket_queue_put(&queue, &pkt);
 }
 
+void write_audio_packet(IDeckLinkAudioInputPacket *audioFrame)
+{
+    AVCodecContext *c;
+    AVPacket pkt;
+    BMDTimeValue audio_pts;
+    void *audioFrameBytes;
+
+    av_init_packet(&pkt);
+
+    c = audio_st->codec;
+    //hack among hacks
+    pkt.size = audioFrame->GetSampleFrameCount() *
+               g_audioChannels * (g_audioSampleDepth / 8);
+    audioFrame->GetBytes(&audioFrameBytes);
+    audioFrame->GetPacketTime(&audio_pts, audio_st->time_base.den);
+    pkt.pts = audio_pts / audio_st->time_base.num;
+
+    if (initial_audio_pts == AV_NOPTS_VALUE) {
+        initial_audio_pts = pkt.pts;
+    }
+
+    pkt.pts -= initial_audio_pts;
+    pkt.dts = pkt.pts;
+
+    pkt.flags       |= AV_PKT_FLAG_KEY;
+    pkt.stream_index = audio_st->index;
+    pkt.data         = (uint8_t *)audioFrameBytes;
+    c->frame_number++;
+
+    avpacket_queue_put(&queue, &pkt);
+}
 
 void write_video_packet(IDeckLinkVideoInputFrame *videoFrame,
                         int64_t pts, int64_t duration)
@@ -447,14 +478,13 @@ void write_video_packet(IDeckLinkVideoInputFrame *videoFrame,
 HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
     IDeckLinkVideoInputFrame *videoFrame, IDeckLinkAudioInputPacket *audioFrame)
 {
-    void *audioFrameBytes;
-    BMDTimeValue frameTime;
-    BMDTimeValue frameDuration;
 
     frameCount++;
 
     // Handle Video Frame
     if (videoFrame) {
+        BMDTimeValue frameTime;
+        BMDTimeValue frameDuration;
         int64_t pts;
         videoFrame->GetStreamTime(&frameTime, &frameDuration,
                                   video_st->time_base.den);
@@ -487,40 +517,8 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
     }
 
     // Handle Audio Frame
-    if (audioFrame) {
-        AVCodecContext *c;
-        AVPacket pkt;
-        BMDTimeValue audio_pts;
-        av_init_packet(&pkt);
-
-        c = audio_st->codec;
-        //hack among hacks
-        pkt.size = audioFrame->GetSampleFrameCount() *
-                   g_audioChannels * (g_audioSampleDepth / 8);
-        audioFrame->GetBytes(&audioFrameBytes);
-        audioFrame->GetPacketTime(&audio_pts, audio_st->time_base.den);
-        pkt.pts = audio_pts / audio_st->time_base.num;
-
-        if (initial_audio_pts == AV_NOPTS_VALUE) {
-            initial_audio_pts = pkt.pts;
-        }
-
-        pkt.pts -= initial_audio_pts;
-        pkt.dts = pkt.pts;
-
-        //fprintf(stderr,"Audio Frame size %d ts %d\n", pkt.size, pkt.pts);
-        pkt.flags       |= AV_PKT_FLAG_KEY;
-        pkt.stream_index = audio_st->index;
-        pkt.data         = (uint8_t *)audioFrameBytes;
-        //pkt.size= avcodec_encode_audio(c, audio_outbuf, audio_outbuf_size, samples);
-        c->frame_number++;
-        //write(audioOutputFile, audioFrameBytes, audioFrame->GetSampleFrameCount() * g_audioChannels * (g_audioSampleDepth / 8));
-/*            if (av_interleaved_write_frame(oc, &pkt) != 0) {
- *          fprintf(stderr, "Error while writing audio frame\n");
- *          exit(1);
- *      } */
-        avpacket_queue_put(&queue, &pkt);
-    }
+    if (audioFrame)
+        write_audio_packet(audioFrame);
 
 
     return S_OK;
