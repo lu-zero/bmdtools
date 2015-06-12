@@ -258,8 +258,8 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
      * timebase should be 1/framerate and timestamp increments should be
      * identically 1.*/
     displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-    c->time_base.den = frameRateScale;
-    c->time_base.num = frameRateDuration;
+    st->time_base.den = frameRateScale;
+    st->time_base.num = frameRateDuration;
     c->pix_fmt       = pix_fmt;
 
     if (codec_id == AV_CODEC_ID_V210 || codec_id == AV_CODEC_ID_R210)
@@ -304,8 +304,8 @@ static AVStream *add_data_stream(AVFormatContext *oc, enum AVCodecID codec_id)
     c->codec_type = AVMEDIA_TYPE_DATA;
 
     displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-    c->time_base.den = frameRateScale;
-    c->time_base.num = frameRateDuration;
+    st->time_base.den = frameRateScale;
+    st->time_base.num = frameRateDuration;
 
     // some formats want stream headers to be separate
     if(oc->oformat->flags & AVFMT_GLOBALHEADER)
