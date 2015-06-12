@@ -384,6 +384,7 @@ void vanc_as_side_data(AVPacket *pkt,
     vanc = av_packet_new_side_data(pkt, AV_PKT_DATA_VANC, len);
 
     memcpy(vanc, buf, len);
+    ancillary->Release();
 }
 
 void write_data_packet(char *data, int size, int64_t pts)
