@@ -657,6 +657,12 @@ void Player::ScheduleNextFrame(bool prerolling)
 {
     AVPacket pkt;
     AVPicture picture;
+    void *frame;
+    int got_picture;
+    IDeckLinkVideoFrameAncillary *ancillary;
+    int side_data_size;
+    uint8_t *side_data;
+
 
     if (serial_fd > 0 && packet_queue_get(&dataqueue, &pkt, 0)) {
         if (pkt.data[0] != ' '){
@@ -676,8 +682,14 @@ void Player::ScheduleNextFrame(bool prerolling)
                                        pix,
                                        bmdFrameFlagDefault,
                                        &videoFrame);
-    void *frame;
-    int got_picture;
+
+    side_data = av_packet_get_side_data(&pkt, AV_PKT_DATA_VANC,
+                                        &side_data_size);
+
+    if (pix_fmt == AV_PIX_FMT_YUV422P10 && side_data)
+        m_deckLinkOutput->CreateAncillaryData(pix, &ancillary);
+
+
     videoFrame->GetBytes(&frame);
 
     avcodec_decode_video2(video_st->codec, avframe, &got_picture, &pkt);
@@ -687,6 +699,15 @@ void Player::ScheduleNextFrame(bool prerolling)
 
         sws_scale(sws, avframe->data, avframe->linesize, 0, avframe->height,
                   picture.data, picture.linesize);
+
+        if (pix_fmt == AV_PIX_FMT_YUV422P10 && side_data) {
+            void *buf;
+            ancillary->GetBufferForVerticalBlankingLine(CC_LINE, &buf);
+
+            memcpy(buf, side_data, side_data_size);
+
+            videoFrame->SetAncillaryData(ancillary);
+        }
 
         if (m_deckLinkOutput->ScheduleVideoFrame(videoFrame,
                                                  pkt.pts *
