@@ -24,6 +24,8 @@
 
 #include "DeckLinkAPI.h"
 
+#define CC_LINE 9
+
 void print_input_modes(IDeckLink *deckLink);
 void print_output_modes(IDeckLink *deckLink);
 

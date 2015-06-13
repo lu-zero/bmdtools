@@ -360,9 +360,6 @@ int64_t initial_audio_pts = AV_NOPTS_VALUE;
 
 static int no_video = 0;
 
-#define CC_LINE 9
-
-
 // FIXME fail properly.
 void vanc_as_side_data(AVPacket *pkt,
                        IDeckLinkVideoInputFrame *frame)
