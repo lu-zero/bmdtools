@@ -615,7 +615,7 @@ void Player::StartRunning(int videomode)
 
     // Set the video output mode
     if (m_deckLinkOutput->EnableVideoOutput(videoDisplayMode->GetDisplayMode(),
-                                            bmdVideoOutputFlagDefault) !=
+                                            bmdVideoOutputVANC) !=
         S_OK) {
         fprintf(stderr, "Failed to enable video output\n");
         return;
@@ -660,11 +660,10 @@ void Player::ScheduleNextFrame(bool prerolling)
     AVPacket pkt;
     AVPicture picture;
     void *frame;
-    int got_picture;
+    int got_picture = 0;
     IDeckLinkVideoFrameAncillary *ancillary;
-    int side_data_size;
+    int side_data_size, linesize;
     uint8_t *side_data;
-
 
     if (serial_fd > 0 && packet_queue_get(&dataqueue, &pkt, 0)) {
         if (pkt.data[0] != ' '){
@@ -677,30 +676,31 @@ void Player::ScheduleNextFrame(bool prerolling)
     if (packet_queue_get(&videoqueue, &pkt, 0) < 0)
         return;
 
+    if (pix == bmdFormat8BitYUV)
+        linesize = m_frameWidth * 2;
+    else // v210
+        linesize = m_frameWidth * 8 / 3;
+
+
     IDeckLinkMutableVideoFrame *videoFrame;
-    m_deckLinkOutput->CreateVideoFrame(m_frameWidth,
-                                       m_frameHeight,
-                                       m_frameWidth * 2,
-                                       pix,
-                                       bmdFrameFlagDefault,
-                                       &videoFrame);
-
-    side_data = av_packet_get_side_data(&pkt, AV_PKT_DATA_VANC,
-                                        &side_data_size);
-
-    if (pix_fmt == AV_PIX_FMT_YUV422P10 && side_data)
-        m_deckLinkOutput->CreateAncillaryData(pix, &ancillary);
-
+    if (m_deckLinkOutput->CreateVideoFrame(m_frameWidth,
+                                           m_frameHeight,
+                                           linesize,
+                                           pix,
+                                           bmdFrameFlagDefault,
+                                           &videoFrame) != S_OK)
+        av_log(NULL, AV_LOG_ERROR, "Cannot get frame\n");
 
     videoFrame->GetBytes(&frame);
 
-    avcodec_decode_video2(video_st->codec, avframe, &got_picture, &pkt);
-    if (got_picture) {
-        avpicture_fill(&picture, (uint8_t *)frame, pix_fmt,
-                       m_frameWidth, m_frameHeight);
+    if (pix == bmdFormat10BitYUV) {
+        side_data = av_packet_get_side_data(&pkt, AV_PKT_DATA_VANC,
+                                            &side_data_size);
 
-        sws_scale(sws, avframe->data, avframe->linesize, 0, avframe->height,
-                  picture.data, picture.linesize);
+        if (side_data)
+            m_deckLinkOutput->CreateAncillaryData(pix, &ancillary);
+
+        memcpy(frame, pkt.data, pkt.size); // v210 data as-is
 
         if (pix_fmt == AV_PIX_FMT_YUV422P10 && side_data) {
             void *buf;
@@ -717,16 +717,28 @@ void Player::ScheduleNextFrame(bool prerolling)
 
             videoFrame->SetAncillaryData(ancillary);
         }
+        got_picture = 1;
+    } else {
+        avcodec_decode_video2(video_st->codec, avframe, &got_picture, &pkt);
+        if (got_picture) {
+            avpicture_fill(&picture, (uint8_t *)frame, pix_fmt,
+                           m_frameWidth, m_frameHeight);
 
+            sws_scale(sws, avframe->data, avframe->linesize, 0, avframe->height,
+                      picture.data, picture.linesize);
+        }
+    }
+
+    if (got_picture) {
         if (m_deckLinkOutput->ScheduleVideoFrame(videoFrame,
-                                                 pkt.pts *
-                                                 video_st->time_base.num,
-                                                 pkt.duration *
-                                                 video_st->time_base.num,
-                                                 video_st->time_base.den) !=
-            S_OK)
+                                             pkt.pts *
+                                             video_st->time_base.num,
+                                             pkt.duration *
+                                             video_st->time_base.num,
+                                             video_st->time_base.den) != S_OK)
             fprintf(stderr, "Error scheduling frame\n");
     }
+
     videoFrame->Release();
     av_packet_unref(&pkt);
 }
