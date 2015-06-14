@@ -697,13 +697,12 @@ void Player::ScheduleNextFrame(bool prerolling)
         side_data = av_packet_get_side_data(&pkt, AV_PKT_DATA_VANC,
                                             &side_data_size);
 
-        if (side_data)
-            m_deckLinkOutput->CreateAncillaryData(pix, &ancillary);
-
         memcpy(frame, pkt.data, pkt.size); // v210 data as-is
 
-        if (pix_fmt == AV_PIX_FMT_YUV422P10 && side_data) {
+        if (side_data) {
             void *buf;
+            m_deckLinkOutput->CreateAncillaryData(pix, &ancillary);
+
             ancillary->GetBufferForVerticalBlankingLine(CC_LINE, &buf);
             if (verbose)
                 av_log(NULL, AV_LOG_INFO|AV_LOG_C(132),
