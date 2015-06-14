@@ -773,8 +773,10 @@ void Player::WriteNextAudioSamples()
                                                    samples,
                                                    pkt.pts + off,
                                                    audio_st->time_base.den / audio_st->time_base.num,
-                                                   &samplesWritten) != S_OK)
+                                                   &samplesWritten) != S_OK) {
             fprintf(stderr, "error writing audio sample\n");
+            break;
+        }
         samples -= samplesWritten;
         off     += samplesWritten;
     } while (samples > 0);
