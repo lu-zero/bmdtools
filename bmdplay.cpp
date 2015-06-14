@@ -57,6 +57,7 @@ static BMDPixelFormat pix       = bmdFormat8BitYUV;
 
 static int buffer    = 2000 * 1000;
 static int serial_fd = -1;
+static int verbose   = 0;
 
 const unsigned long kAudioWaterlevel = 48000 / 4;      /* small */
 
@@ -302,6 +303,7 @@ int usage(int status)
 
     fprintf(
         stderr,
+        "    -v                   Verbose reporting\n"
         "    -f <filename>        Filename raw video will be written to\n"
         "    -C <num>             Card number to be used\n"
         "    -b <num>             Milliseconds of pre-buffering before playback (default = 2000 ms)\n"
@@ -325,7 +327,7 @@ int main(int argc, char *argv[])
     int camera     = 0;
     char *filename = NULL;
 
-    while ((ch = getopt(argc, argv, "?hs:f:a:m:n:F:C:O:b:p:S:")) != -1) {
+    while ((ch = getopt(argc, argv, "?hs:f:a:m:n:F:C:O:b:p:S:v")) != -1) {
         switch (ch) {
         case 'p':
             switch (atoi(optarg)) {
@@ -361,6 +363,9 @@ int main(int argc, char *argv[])
             break;
         case 'S':
             serial_fd = open(optarg, O_RDWR | O_NONBLOCK);
+            break;
+        case 'v':
+            verbose = 1;
             break;
         case '?':
         case 'h':
@@ -703,6 +708,13 @@ void Player::ScheduleNextFrame(bool prerolling)
         if (pix_fmt == AV_PIX_FMT_YUV422P10 && side_data) {
             void *buf;
             ancillary->GetBufferForVerticalBlankingLine(CC_LINE, &buf);
+            if (verbose)
+                av_log(NULL, AV_LOG_INFO|AV_LOG_C(132),
+                       "VANC 0x%02x 0x%02x 0x%02x 0x%02x\n",
+                       side_data[0],
+                       side_data[1],
+                       side_data[2],
+                       side_data[3]);
 
             memcpy(buf, side_data, side_data_size);
 
