@@ -35,7 +35,9 @@
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <libavutil/intreadwrite.h>
 #include <libavutil/mathematics.h>
+#include <libavutil/time.h>
 #include "libswscale/swscale.h"
 }
 #include "compat.h"
@@ -696,6 +698,15 @@ void Player::ScheduleNextFrame(bool prerolling)
 
     videoFrame->GetBytes(&frame);
 
+    side_data = av_packet_get_side_data(&pkt, AV_PKT_DATA_WALLCLOCK,
+                                        &side_data_size);
+    if (side_data && side_data_size == sizeof(int64_t)) {
+        int64_t t = AV_RB64(side_data);
+        av_log(NULL, AV_LOG_INFO|AV_LOG_C(124),
+               "Time delta %" PRId64 "\n",
+               av_gettime() - t);
+    }
+
     if (pix == bmdFormat10BitYUV) {
         side_data = av_packet_get_side_data(&pkt, AV_PKT_DATA_VANC,
                                             &side_data_size);
@@ -707,14 +718,14 @@ void Player::ScheduleNextFrame(bool prerolling)
             m_deckLinkOutput->CreateAncillaryData(pix, &ancillary);
 
             ancillary->GetBufferForVerticalBlankingLine(CC_LINE, &buf);
-            if (verbose)
+/*            if (verbose)
                 av_log(NULL, AV_LOG_INFO|AV_LOG_C(132),
                        "VANC 0x%02x 0x%02x 0x%02x 0x%02x\n",
                        side_data[0],
                        side_data[1],
                        side_data[2],
                        side_data[3]);
-
+*/
             memcpy(buf, side_data, side_data_size);
 
             videoFrame->SetAncillaryData(ancillary);

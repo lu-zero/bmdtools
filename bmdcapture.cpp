@@ -36,6 +36,7 @@
 #include "modes.h"
 extern "C" {
 #include "libavformat/avformat.h"
+#include "libavutil/intreadwrite.h"
 #include "libavutil/time.h"
 }
 
@@ -57,7 +58,7 @@ const char *g_videoOutputFile    = NULL;
 const char *g_audioOutputFile    = NULL;
 static int g_maxFrames           = -1;
 static int serial_fd             = -1;
-static int wallclock             = 0;
+static int wallclock             = -1;
 static int draw_bars             = 1;
 bool g_verbose                   = false;
 unsigned long long g_memoryLimit = 1024 * 1024 * 1024;            // 1GByte(>50 sec)
@@ -361,6 +362,14 @@ int64_t initial_audio_pts = AV_NOPTS_VALUE;
 
 static int no_video = 0;
 
+void wallclock_as_side_data(AVPacket *pkt)
+{
+    uint8_t *wallclock = av_packet_new_side_data(pkt, AV_PKT_DATA_WALLCLOCK, sizeof(int64_t));
+    int64_t time       = av_gettime();
+
+    AV_WB64(wallclock, time);
+}
+
 // FIXME fail properly.
 void vanc_as_side_data(AVPacket *pkt,
                        IDeckLinkVideoInputFrame *frame)
@@ -502,6 +511,9 @@ void write_video_packet(IDeckLinkVideoInputFrame *videoFrame,
     if (pix_fmt == AV_PIX_FMT_YUV422P10)
         vanc_as_side_data(&pkt, videoFrame);
 
+    if (wallclock == 0)
+        wallclock_as_side_data(&pkt);
+
     avpacket_queue_put(&queue, &pkt);
 }
 
@@ -539,7 +551,7 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
             write_data_packet(line, 7, pts);
         }
 
-        if (wallclock) {
+        if (wallclock == 1) {
             int64_t t = av_gettime();
             char line[20];
             snprintf(line, sizeof(line), "%" PRId64, t);
@@ -638,7 +650,9 @@ int usage(int status)
         "                         5: Optical SDI\n"
         "                         6: S-Video\n"
         "    -o <optionstring>    AVFormat options\n"
-        "    -w                   Embed a wallclock stream\n"
+        "    -w <type>            Embed a wallclock stream\n"
+        "                         0: as side-data\n"
+        "                         1: as data-stream\n"
         "    -d <filler>          When the source is offline draw a black frame or color bars\n"
         "                         0: black frame\n"
         "                         1: color bars\n"
@@ -704,7 +718,7 @@ int main(int argc, char *argv[])
     }
 
     // Parse command line options
-    while ((ch = getopt(argc, argv, "?hvc:s:f:a:m:n:p:M:F:C:A:V:o:w")) != -1) {
+    while ((ch = getopt(argc, argv, "?hvc:s:f:a:m:n:p:M:F:C:A:V:o:w:")) != -1) {
         switch (ch) {
         case 'v':
             g_verbose = true;
@@ -805,7 +819,7 @@ int main(int argc, char *argv[])
             }
             break;
         case 'w':
-            wallclock = true;
+            wallclock = atoi(optarg);
             break;
         case 'd':
             draw_bars = atoi(optarg);
@@ -816,7 +830,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (serial_fd > 0 && wallclock) {
+    if (serial_fd > 0 && wallclock == 1) {
         fprintf(stderr, "%s",
                 "Wallclock and serial are not supported together\n"
                 "Please disable either.\n");
@@ -981,7 +995,7 @@ int main(int argc, char *argv[])
     video_st = add_video_stream(oc, fmt->video_codec);
     audio_st = add_audio_stream(oc, fmt->audio_codec);
 
-    if (serial_fd > 0 || wallclock)
+    if (serial_fd > 0 || wallclock == 1)
         data_st = add_data_stream(oc, AV_CODEC_ID_TEXT);
 
     if (!(fmt->flags & AVFMT_NOFILE)) {
