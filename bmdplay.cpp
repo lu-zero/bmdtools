@@ -664,7 +664,7 @@ void Player::ScheduleNextFrame(bool prerolling)
     AVPicture picture;
     void *frame;
     int got_picture = 0;
-    IDeckLinkVideoFrameAncillary *ancillary;
+    IDeckLinkVideoFrameAncillary *ancillary = NULL;
     int side_data_size, linesize;
     uint8_t *side_data;
 
@@ -741,6 +741,8 @@ void Player::ScheduleNextFrame(bool prerolling)
             fprintf(stderr, "Error scheduling frame\n");
     }
 
+    if (ancillary)
+        ancillary->Release();
     videoFrame->Release();
     av_free_packet(&pkt);
 }
