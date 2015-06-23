@@ -37,7 +37,7 @@ PKG_DEPS = libavcodec libavformat libswscale libavutil
 CXXFLAGS = $(ECXXFLAGS)
 LDFLAGS  = $(ELDFLAGS)
 
-CXXFLAGS += `pkg-config --cflags $(PKG_DEPS)` -D__STDC_CONSTANT_MACROS
+CXXFLAGS += `pkg-config --cflags $(PKG_DEPS)` -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS
 LDFLAGS  += `pkg-config --libs $(PKG_DEPS)`
 
 CXXFLAGS+= -Wno-multichar -I $(SDK_PATH) -fno-rtti -g
