@@ -58,6 +58,7 @@ static enum PixelFormat pix_fmt = PIX_FMT_UYVY422;
 static BMDPixelFormat pix       = bmdFormat8BitYUV;
 
 static int buffer    = 2000 * 1000;
+static int serial    = 2; // for testing
 static int serial_fd = -1;
 static int verbose   = 0;
 
@@ -674,10 +675,12 @@ void Player::ScheduleNextFrame(bool prerolling)
     int side_data_size, linesize;
     uint8_t *side_data;
 
-    if (serial_fd > 0 && packet_queue_get(&dataqueue, &pkt, 0)) {
-        if (pkt.data[0] != ' '){
-            fprintf(stderr,"written %.*s  \n", pkt.size, pkt.data);
-            write(serial_fd, pkt.data, pkt.size);
+    if (packet_queue_get(&dataqueue, &pkt, 0)) {
+        if (serial_fd > 0 && serial == 1) {
+            if (pkt.data[0] != ' '){
+                fprintf(stderr,"written %.*s  \n", pkt.size, pkt.data);
+                write(serial_fd, pkt.data, pkt.size);
+            }
         }
         av_free_packet(&pkt);
     }
@@ -709,6 +712,15 @@ void Player::ScheduleNextFrame(bool prerolling)
         av_log(NULL, AV_LOG_INFO|AV_LOG_C(124),
                "Time delta %" PRId64 "\n",
                av_gettime() - t);
+    }
+
+    side_data = av_packet_get_side_data(&pkt, AV_PKT_DATA_SERIAL,
+                                        &side_data_size);
+    if (side_data) {
+        if (side_data[0] != ' '){
+            fprintf(stderr,"written %.*s  \n", side_data_size, side_data);
+            write(serial_fd, side_data, side_data_size);
+        }
     }
 
     if (pix == bmdFormat10BitYUV) {
