@@ -58,6 +58,7 @@ const char *g_audioOutputFile    = NULL;
 static int g_maxFrames           = -1;
 static int serial_fd             = -1;
 static int wallclock             = -1;
+static int serial                = 2; // Pending proper options
 static int draw_bars             = 1;
 bool g_verbose                   = false;
 unsigned long long g_memoryLimit = 1024 * 1024 * 1024;            // 1GByte(>50 sec)
@@ -369,6 +370,22 @@ void wallclock_as_side_data(AVPacket *pkt)
     AV_WB64(wallclock, time);
 }
 
+#define SERIAL_SIZE 7
+void serial_as_side_data(AVPacket *pkt)
+{
+    uint8_t *line = av_packet_new_side_data(pkt, AV_PKT_DATA_SERIAL, SERIAL_SIZE + 1);
+    int count;
+
+    if (!line)
+        return;
+
+    count = read(serial_fd, line, 7);
+    if (count > 0)
+        fprintf(stderr, "read %d bytes: %s  \n", count, line);
+    else
+        line[0] = ' ';
+}
+
 // FIXME fail properly.
 void vanc_as_side_data(AVPacket *pkt,
                        IDeckLinkVideoInputFrame *frame)
@@ -512,6 +529,8 @@ void write_video_packet(IDeckLinkVideoInputFrame *videoFrame,
 
     if (wallclock == 0)
         wallclock_as_side_data(&pkt);
+    if (serial_fd > 0 && serial == 2)
+        serial_as_side_data(&pkt);
 
     avpacket_queue_put(&queue, &pkt);
 }
@@ -541,7 +560,7 @@ HRESULT DeckLinkCaptureDelegate::VideoInputFrameArrived(
 
         write_video_packet(videoFrame, pts, frameDuration);
 
-        if (serial_fd > 0) {
+        if (serial_fd > 0 && serial == 1) {
             char line[8] = {0};
             int count = read(serial_fd, line, 7);
             if (count > 0)
@@ -829,7 +848,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (serial_fd > 0 && wallclock == 1) {
+    if (serial_fd > 0 && wallclock == 1 && serial == 1) {
         fprintf(stderr, "%s",
                 "Wallclock and serial are not supported together\n"
                 "Please disable either.\n");
@@ -994,7 +1013,7 @@ int main(int argc, char *argv[])
     video_st = add_video_stream(oc, fmt->video_codec);
     audio_st = add_audio_stream(oc, fmt->audio_codec);
 
-    if (serial_fd > 0 || wallclock == 1)
+    if (serial == 1 || wallclock == 1)
         data_st = add_data_stream(oc, AV_CODEC_ID_TEXT);
 
     if (!(fmt->flags & AVFMT_NOFILE)) {
