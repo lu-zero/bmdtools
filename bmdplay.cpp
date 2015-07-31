@@ -140,7 +140,7 @@ static int packet_queue_put(PacketQueue *q, AVPacket *pkt)
     q->nb_packets++;
     if (q->nb_packets > 5000)
         fprintf(stderr,
-                "%ld storing %p, %s - is the input faster than realtime?\n",
+                "%"PRId64" storing %p, %s - is the input faster than realtime?\n",
                 q->nb_packets,
                 q,
                 q == &videoqueue ? "videoqueue" : "audioqueue");
@@ -167,7 +167,7 @@ static int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block)
                 q->last_pkt = NULL;
             q->nb_packets--;
             if (q->nb_packets > 5000)
-                fprintf(stderr, "pulling %ld from %p %s\n",
+                fprintf(stderr, "pulling %"PRId64" from %p %s\n",
                         q->nb_packets,
                         q,
                         q == &videoqueue ? "videoqueue" : "audioqueue");
@@ -241,6 +241,9 @@ void *fill_queues(void *unused)
             break;
         case AVMEDIA_TYPE_DATA:
 	    packet_queue_put(&dataqueue, &pkt);
+            break;
+        default:
+            av_packet_unref(&pkt);
             break;
         }
     }
@@ -433,7 +436,8 @@ int main(int argc, char *argv[])
 
     avformat_close_input(&ic);
 
-    fprintf(stderr, "video %ld audio %ld", videoqueue.nb_packets,
+    fprintf(stderr, "video %"PRId64" audio %"PRId64"\n",
+            videoqueue.nb_packets,
             audioqueue.nb_packets);
 
     return ret;
@@ -479,7 +483,7 @@ bool Player::Init(int videomode, int connection, int camera)
         case 32:
             break;
         default:
-            fprintf(stderr, "%dbit audio not supported use 16bit or 32bit\n",
+            fprintf(stderr, "%lubit audio not supported use 16bit or 32bit\n",
                     m_audioSampleDepth);
     }
 
@@ -533,7 +537,7 @@ bool Player::Init(int videomode, int connection, int camera)
     m_deckLinkOutput->SetScheduledFrameCompletionCallback(this);
     m_deckLinkOutput->SetAudioCallback(this);
 
-    avframe = avcodec_alloc_frame();
+    avframe = av_frame_alloc();
 
     packet_queue_init(&audioqueue);
     packet_queue_init(&videoqueue);
