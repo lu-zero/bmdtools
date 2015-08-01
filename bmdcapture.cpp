@@ -373,17 +373,23 @@ void wallclock_as_side_data(AVPacket *pkt)
 #define SERIAL_SIZE 7
 void serial_as_side_data(AVPacket *pkt)
 {
-    uint8_t *line = av_packet_new_side_data(pkt, AV_PKT_DATA_SERIAL, SERIAL_SIZE + 1);
+    uint8_t *line, buf[8] = { 0 };
     int count;
+
+    count = read(serial_fd, buf, SERIAL_SIZE);
+    if (count > 0)
+        fprintf(stderr, "read %d bytes: %s  \n", count, buf);
+    else
+        return;
+
+    line = av_packet_new_side_data(pkt, AV_PKT_DATA_SERIAL, SERIAL_SIZE + 1);
 
     if (!line)
         return;
 
-    count = read(serial_fd, line, 7);
-    if (count > 0)
-        fprintf(stderr, "read %d bytes: %s  \n", count, line);
-    else
-        line[0] = ' ';
+    memcpy(line, buf, count);
+
+    line[count] = '\0';
 }
 
 // FIXME fail properly.
