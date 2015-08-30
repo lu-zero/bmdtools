@@ -63,7 +63,7 @@ unsigned long long g_memoryLimit = 1024 * 1024 * 1024;            // 1GByte(>50 
 
 static unsigned long frameCount = 0;
 static unsigned int dropped     = 0, totaldropped = 0;
-static enum PixelFormat pix_fmt = PIX_FMT_UYVY422;
+static enum AVPixelFormat pix_fmt     = AV_PIX_FMT_UYVY422;
 static enum AVSampleFormat sample_fmt = AV_SAMPLE_FMT_S16;
 typedef struct AVPacketQueue {
     AVPacketList *first_pkt, *last_pkt;

@@ -52,8 +52,8 @@ AVFrame *avframe;
 AVStream *audio_st = NULL;
 AVStream *video_st = NULL;
 
-static enum PixelFormat pix_fmt = PIX_FMT_UYVY422;
-static BMDPixelFormat pix       = bmdFormat8BitYUV;
+static enum AVPixelFormat pix_fmt = AV_PIX_FMT_UYVY422;
+static BMDPixelFormat pix         = bmdFormat8BitYUV;
 
 static int buffer    = 2000 * 1000;
 static int serial_fd = -1;
@@ -334,11 +334,11 @@ int main(int argc, char *argv[])
             switch (atoi(optarg)) {
             case  8:
                 pix     = bmdFormat8BitYUV;
-                pix_fmt = PIX_FMT_UYVY422;
+                pix_fmt = AV_PIX_FMT_UYVY422;
                 break;
             case 10:
                 pix     = bmdFormat10BitYUV;
-                pix_fmt = PIX_FMT_YUV422P10;
+                pix_fmt = AV_PIX_FMT_YUV422P10;
                 break;
             default:
                 fprintf(
