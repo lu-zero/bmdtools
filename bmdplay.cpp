@@ -74,14 +74,11 @@ PacketQueue videoqueue;
 PacketQueue dataqueue;
 struct SwsContext *sws;
 
-static int packet_queue_put(PacketQueue *q, AVPacket *pkt);
-
 static void packet_queue_init(PacketQueue *q)
 {
     memset(q, 0, sizeof(PacketQueue));
     pthread_mutex_init(&q->mutex, NULL);
     pthread_cond_init(&q->cond, NULL);
-//    packet_queue_put(q, &flush_pkt);
 }
 
 static void packet_queue_flush(PacketQueue *q)
@@ -91,7 +88,7 @@ static void packet_queue_flush(PacketQueue *q)
     pthread_mutex_lock(&q->mutex);
     for (pkt = q->first_pkt; pkt != NULL; pkt = pkt1) {
         pkt1 = pkt->next;
-        av_free_packet(&pkt->pkt);
+        av_packet_unref(&pkt->pkt);
         av_freep(&pkt);
     }
     q->last_pkt   = NULL;
@@ -115,10 +112,6 @@ static void packet_queue_end(PacketQueue *q)
 static int packet_queue_put(PacketQueue *q, AVPacket *pkt)
 {
     AVPacketList *pkt1;
-
-    /* duplicate the packet */
-    if (av_dup_packet(pkt) < 0)
-        return -1;
 
     pkt1 = (AVPacketList *)av_malloc(sizeof(AVPacketList));
     if (!pkt1)
@@ -667,7 +660,7 @@ void Player::ScheduleNextFrame(bool prerolling)
             fprintf(stderr,"written %.*s  \n", pkt.size, pkt.data);
             write(serial_fd, pkt.data, pkt.size);
         }
-        av_free_packet(&pkt);
+        av_packet_unref(&pkt);
     }
 
     if (packet_queue_get(&videoqueue, &pkt, 0) < 0)
@@ -702,7 +695,7 @@ void Player::ScheduleNextFrame(bool prerolling)
             fprintf(stderr, "Error scheduling frame\n");
     }
     videoFrame->Release();
-    av_free_packet(&pkt);
+    av_packet_unref(&pkt);
 }
 
 void Player::WriteNextAudioSamples()
@@ -739,7 +732,7 @@ void Player::WriteNextAudioSamples()
         off     += samplesWritten;
     } while (samples > 0);
 
-    av_free_packet(&pkt);
+    av_packet_unref(&pkt);
 }
 
 /************************* DeckLink API Delegate Methods *****************************/
