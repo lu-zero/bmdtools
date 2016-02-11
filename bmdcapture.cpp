@@ -737,6 +737,11 @@ int main(int argc, char *argv[])
                     pix_fmt = AV_PIX_FMT_UYVY422;
                     break;
                 }
+                if (!strcmp("rgb8", optarg)) {
+                    pix     = bmdFormat8BitARGB;
+                    pix_fmt = AV_PIX_FMT_ARGB;
+                    break;
+                }
 
                 fprintf(
                     stderr,
@@ -936,6 +941,7 @@ int main(int argc, char *argv[])
 
 
     switch (pix) {
+    case bmdFormat8BitARGB:
     case bmdFormat8BitYUV:
         fmt->video_codec = AV_CODEC_ID_RAWVIDEO;
         break;
