@@ -648,6 +648,7 @@ static void set_signal()
 {
     signal(SIGINT , exit_handler);
     signal(SIGTERM, exit_handler);
+    signal(SIGHUP,  exit_handler);
 }
 
 int main(int argc, char *argv[])
