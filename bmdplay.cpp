@@ -35,6 +35,7 @@
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <libavutil/imgutils.h>
 #include <libavutil/mathematics.h>
 #include "libswscale/swscale.h"
 }
@@ -684,7 +685,6 @@ void Player::StopRunning()
 void Player::ScheduleNextFrame(bool prerolling)
 {
     AVPacket pkt;
-    AVPicture picture;
 
     if (serial_fd > 0 && packet_queue_get(&dataqueue, &pkt, 0)) {
         if (pkt.data[0] != ' '){
@@ -710,11 +710,14 @@ void Player::ScheduleNextFrame(bool prerolling)
 
     avcodec_decode_video2(video.codec, avframe, &got_picture, &pkt);
     if (got_picture) {
-        avpicture_fill(&picture, (uint8_t *)frame, pix_fmt,
-                       m_frameWidth, m_frameHeight);
+        uint8_t *data[4];
+        int linesize[4];
+
+        av_image_fill_arrays(data, linesize, (uint8_t *)frame,
+                             pix_fmt, m_frameWidth, m_frameHeight, 1);
 
         sws_scale(sws, avframe->data, avframe->linesize, 0, avframe->height,
-                  picture.data, picture.linesize);
+                  data, linesize);
 
         if (m_deckLinkOutput->ScheduleVideoFrame(videoFrame,
                                                  pkt.pts *
