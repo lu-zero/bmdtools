@@ -49,8 +49,14 @@ IDeckLinkConfiguration *deckLinkConfiguration;
 
 AVFormatContext *ic;
 AVFrame *avframe;
-AVStream *audio_st = NULL;
-AVStream *video_st = NULL;
+
+typedef struct PlayStream {
+    AVStream *st;
+    AVCodecContext *codec;
+} PlayStream;
+
+PlayStream audio;
+PlayStream video;
 
 static enum AVPixelFormat pix_fmt = AV_PIX_FMT_UYVY422;
 static BMDPixelFormat pix         = bmdFormat8BitYUV;
@@ -204,14 +210,14 @@ void *fill_queues(void *unused)
                         videoqueue.size);
         }
         st = ic->streams[pkt.stream_index];
-        switch (st->codec->codec_type) {
+        switch (st->codecpar->codec_type) {
         case AVMEDIA_TYPE_VIDEO:
             if (pkt.pts != AV_NOPTS_VALUE) {
                 if (first_pts == AV_NOPTS_VALUE) {
                     first_pts       = first_video_pts = pkt.pts;
                     first_audio_pts =
-                        av_rescale_q(pkt.pts, video_st->time_base,
-                                     audio_st->time_base);
+                        av_rescale_q(pkt.pts, video.st->time_base,
+                                     audio.st->time_base);
                 }
                 pkt.pts -= first_video_pts;
             }
@@ -222,8 +228,8 @@ void *fill_queues(void *unused)
                 if (first_pts == AV_NOPTS_VALUE) {
                     first_pts       = first_audio_pts = pkt.pts;
                     first_video_pts =
-                        av_rescale_q(pkt.pts, audio_st->time_base,
-                                     video_st->time_base);
+                        av_rescale_q(pkt.pts, audio.st->time_base,
+                                     video.st->time_base);
                 }
                 pkt.pts -= first_audio_pts;
             }
@@ -374,29 +380,54 @@ int main(int argc, char *argv[])
     avformat_find_stream_info(ic, NULL);
 
     for (int i = 0; i < ic->nb_streams; i++) {
-        AVStream *st          = ic->streams[i];
-        AVCodecContext *avctx = st->codec;
-        AVCodec *codec        = avcodec_find_decoder(avctx->codec_id);
-        if (!codec || avcodec_open2(avctx, codec, NULL) < 0)
-            fprintf(
-                stderr, "cannot find codecs for %s\n",
-                (avctx->codec_type ==
-                 AVMEDIA_TYPE_AUDIO) ? "Audio" : "Video");
-        if (avctx->codec_type == AVMEDIA_TYPE_AUDIO) {
-            audio_st = st;
-        }
-        if (avctx->codec_type == AVMEDIA_TYPE_VIDEO) {
-            video_st = st;
+        AVStream *st           = ic->streams[i];
+        AVCodecParameters *par = st->codecpar;
+        AVCodec *codec         = avcodec_find_decoder(par->codec_id);
+        switch (par->codec_type) {
+        case AVMEDIA_TYPE_AUDIO:
+        case AVMEDIA_TYPE_VIDEO:
+            if (codec) {
+                AVCodecContext *avctx  = avcodec_alloc_context3(codec);
+                if (!avctx) {
+                    av_log(NULL, AV_LOG_ERROR, "Out of memory\n");
+                    exit(1);
+                }
+
+                if (avcodec_open2(avctx, codec, NULL) < 0) {
+                    avcodec_free_context(&avctx);
+                    av_log(NULL, AV_LOG_ERROR, "Codec open failed\n");
+                    exit(1);
+                }
+
+                if (par->codec_type == AVMEDIA_TYPE_AUDIO) {
+                    audio.st    = st;
+                    audio.codec = avctx;
+                }
+
+                if (par->codec_type == AVMEDIA_TYPE_VIDEO) {
+                    video.st    = st;
+                    video.codec = avctx;
+                }
+            } else {
+                fprintf(
+                    stderr, "cannot find codecs for %s\n",
+                    (par->codec_type ==
+                     AVMEDIA_TYPE_AUDIO) ? "Audio" : "Video");
+                continue;
+            }
+            break;
+        default:
+            av_log(NULL, AV_LOG_VERBOSE, "Skipping stream %d\n", i);
         }
     }
 
-    if (!audio_st) {
+    if (!audio.st) {
         av_log(NULL, AV_LOG_ERROR,
                "No audio stream found - bmdplay will close now.\n");
         return 1;
     }
 
-    if (!video_st) {
+    if (!video.st) {
         av_log(NULL, AV_LOG_ERROR,
                "No video stream found - bmdplay will close now.\n");
         return 1;
@@ -404,11 +435,11 @@ int main(int argc, char *argv[])
 
     av_dump_format(ic, 0, filename, 0);
 
-    sws = sws_getContext(video_st->codec->width,
-                         video_st->codec->height,
-                         video_st->codec->pix_fmt,
-                         video_st->codec->width,
-                         video_st->codec->height,
+    sws = sws_getContext(video.st->codecpar->width,
+                         video.st->codecpar->height,
+                         (AVPixelFormat)video.st->codecpar->format,
+                         video.st->codecpar->width,
+                         video.st->codecpar->height,
                          pix_fmt,
                          SWS_BILINEAR, NULL, NULL, NULL);
 
@@ -450,9 +481,9 @@ bool Player::Init(int videomode, int connection, int camera)
     }
 
     m_audioSampleDepth =
-        av_get_exact_bits_per_sample(audio_st->codec->codec_id);
+        av_get_exact_bits_per_sample(audio.codec->codec_id);
 
-    switch (audio_st->codec->channels) {
+    switch (audio.codec->channels) {
         case  2:
         case  8:
         case 16:
@@ -460,7 +491,7 @@ bool Player::Init(int videomode, int connection, int camera)
         default:
             fprintf(stderr,
                     "%d channels not supported, please use 2, 8 or 16\n",
-                    audio_st->codec->channels);
+                    audio.codec->channels);
             goto bail;
     }
 
@@ -619,7 +650,7 @@ void Player::StartRunning(int videomode)
     // Set the audio output mode
     if (m_deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
                                             m_audioSampleDepth,
-                                            audio_st->codec->channels,
+                                            audio.codec->channels,
                                             bmdAudioOutputStreamTimestamped) !=
         S_OK) {
         fprintf(stderr, "Failed to enable audio output\n");
@@ -677,7 +708,7 @@ void Player::ScheduleNextFrame(bool prerolling)
     int got_picture;
     videoFrame->GetBytes(&frame);
 
-    avcodec_decode_video2(video_st->codec, avframe, &got_picture, &pkt);
+    avcodec_decode_video2(video.codec, avframe, &got_picture, &pkt);
     if (got_picture) {
         avpicture_fill(&picture, (uint8_t *)frame, pix_fmt,
                        m_frameWidth, m_frameHeight);
@@ -687,10 +718,10 @@ void Player::ScheduleNextFrame(bool prerolling)
 
         if (m_deckLinkOutput->ScheduleVideoFrame(videoFrame,
                                                  pkt.pts *
-                                                 video_st->time_base.num,
+                                                 video.st->time_base.num,
                                                  pkt.duration *
-                                                 video_st->time_base.num,
-                                                 video_st->time_base.den) !=
+                                                 video.st->time_base.num,
+                                                 video.st->time_base.den) !=
             S_OK)
             fprintf(stderr, "Error scheduling frame\n");
     }
@@ -706,8 +737,8 @@ void Player::WriteNextAudioSamples()
     int got_frame = 0;
     int i;
     int bytes_per_sample =
-        av_get_bytes_per_sample(audio_st->codec->sample_fmt) *
-        audio_st->codec->channels;
+        av_get_bytes_per_sample(audio.codec->sample_fmt) *
+        audio.codec->channels;
     int samples, off = 0;
 
     m_deckLinkOutput->GetBufferedAudioSampleFrameCount(&bufferedSamples);
@@ -725,7 +756,7 @@ void Player::WriteNextAudioSamples()
                                                    off * bytes_per_sample,
                                                    samples,
                                                    pkt.pts + off,
-                                                   audio_st->time_base.den / audio_st->time_base.num,
+                                                   audio.st->time_base.den / audio.st->time_base.num,
                                                    &samplesWritten) != S_OK)
             fprintf(stderr, "error writing audio sample\n");
         samples -= samplesWritten;
