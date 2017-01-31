@@ -194,8 +194,7 @@ BMDTimeValue frameRateDuration, frameRateScale;
 
 static AVStream *add_audio_stream(AVFormatContext *oc, enum AVCodecID codec_id)
 {
-    AVCodecContext *c;
-    AVCodec *codec;
+    AVCodecParameters *par;
     AVStream *st;
 
     st = avformat_new_stream(oc, NULL);
@@ -204,38 +203,21 @@ static AVStream *add_audio_stream(AVFormatContext *oc, enum AVCodecID codec_id)
         exit(1);
     }
 
-    c             = st->codec;
-    c->codec_id   = codec_id;
-    c->codec_type = AVMEDIA_TYPE_AUDIO;
+    par             = st->codecpar;
+    par->codec_id   = codec_id;
+    par->codec_type = AVMEDIA_TYPE_AUDIO;
 
     /* put sample parameters */
-    c->sample_fmt = sample_fmt;
-//    c->bit_rate = 64000;
-    c->sample_rate = 48000;
-    c->channels    = g_audioChannels;
-    // some formats want stream headers to be separate
-    if (oc->oformat->flags & AVFMT_GLOBALHEADER) {
-        c->flags |= CODEC_FLAG_GLOBAL_HEADER;
-    }
-
-    codec = avcodec_find_encoder(c->codec_id);
-    if (!codec) {
-        fprintf(stderr, "codec not found\n");
-        exit(1);
-    }
-
-    if (avcodec_open2(c, codec, NULL) < 0) {
-        fprintf(stderr, "could not open codec\n");
-        exit(1);
-    }
+    par->format      = sample_fmt;
+    par->sample_rate = 48000;
+    par->channels    = g_audioChannels;
 
     return st;
 }
 
 static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
 {
-    AVCodecContext *c;
-    AVCodec *codec;
+    AVCodecParameters *par;
     AVStream *st;
 
     st = avformat_new_stream(oc, NULL);
@@ -244,53 +226,32 @@ static AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
         exit(1);
     }
 
-    c             = st->codec;
-    c->codec_id   = codec_id;
-    c->codec_type = AVMEDIA_TYPE_VIDEO;
+    par             = st->codecpar;
+    par->codec_id   = codec_id;
+    par->codec_type = AVMEDIA_TYPE_VIDEO;
 
-    /* put sample parameters */
-//    c->bit_rate = 400000;
-    /* resolution must be a multiple of two */
-    c->width  = displayMode->GetWidth();
-    c->height = displayMode->GetHeight();
+    par->width  = displayMode->GetWidth();
+    par->height = displayMode->GetHeight();
+    par->format = pix_fmt;
     /* time base: this is the fundamental unit of time (in seconds) in terms
      * of which frame timestamps are represented. for fixed-fps content,
      * timebase should be 1/framerate and timestamp increments should be
      * identically 1.*/
     displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-    c->time_base.den = frameRateScale;
-    c->time_base.num = frameRateDuration;
-    c->pix_fmt       = pix_fmt;
+    st->time_base.den = frameRateScale;
+    st->time_base.num = frameRateDuration;
 
     if (codec_id == AV_CODEC_ID_V210 || codec_id == AV_CODEC_ID_R210)
-        c->bits_per_raw_sample = 10;
+        par->bits_per_coded_sample = 10;
     if (codec_id == AV_CODEC_ID_RAWVIDEO)
-        c->codec_tag = avcodec_pix_fmt_to_codec_tag(c->pix_fmt);
-    // some formats want stream headers to be separate
-    if (oc->oformat->flags & AVFMT_GLOBALHEADER) {
-        c->flags |= CODEC_FLAG_GLOBAL_HEADER;
-    }
-
-    /* find the video encoder */
-    //codec = avcodec_find_encoder(c->codec_id);
-    //if (!codec) {
-    //    fprintf(stderr, "codec not found\n");
-    //    exit(1);
-    //}
-
-    /* open the codec */
-    // if (avcodec_open2(c, codec, NULL) < 0) {
-    //    fprintf(stderr, "could not open codec\n");
-    //    exit(1);
-    //}
+        par->codec_tag = avcodec_pix_fmt_to_codec_tag(pix_fmt);
 
     return st;
 }
 
 static AVStream *add_data_stream(AVFormatContext *oc, enum AVCodecID codec_id)
 {
-    AVCodec *codec;
-    AVCodecContext *c;
+    AVCodecParameters *par;
     AVStream *st;
 
     st = avformat_new_stream(oc, NULL);
@@ -299,25 +260,13 @@ static AVStream *add_data_stream(AVFormatContext *oc, enum AVCodecID codec_id)
         exit(1);
     }
 
-    c = st->codec;
-    c->codec_id = codec_id;
-    c->codec_type = AVMEDIA_TYPE_DATA;
+    par = st->codecpar;
+    par->codec_id = codec_id;
+    par->codec_type = AVMEDIA_TYPE_DATA;
 
     displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-    c->time_base.den = frameRateScale;
-    c->time_base.num = frameRateDuration;
-
-    // some formats want stream headers to be separate
-    if(oc->oformat->flags & AVFMT_GLOBALHEADER)
-        c->flags |= CODEC_FLAG_GLOBAL_HEADER;
-
-    /* find the video encoder */
-    codec = (AVCodec*)av_malloc(sizeof(AVCodec));
-    memset(codec, 0, sizeof(AVCodec));
-    codec->id = c->codec_id;
-
-    /* open the codec */
-    c->codec = codec;
+    st->time_base.den = frameRateScale;
+    st->time_base.num = frameRateDuration;
 
     return st;
 }
@@ -376,15 +325,12 @@ void write_data_packet(char *data, int size, int64_t pts)
 
 void write_audio_packet(IDeckLinkAudioInputPacket *audioFrame)
 {
-    AVCodecContext *c;
     AVPacket pkt;
     BMDTimeValue audio_pts;
     void *audioFrameBytes;
 
     av_init_packet(&pkt);
 
-    c = audio_st->codec;
-    //hack among hacks
     pkt.size = audioFrame->GetSampleFrameCount() *
                g_audioChannels * (g_audioSampleDepth / 8);
     audioFrame->GetBytes(&audioFrameBytes);
@@ -401,7 +347,6 @@ void write_audio_packet(IDeckLinkAudioInputPacket *audioFrame)
     pkt.flags       |= AV_PKT_FLAG_KEY;
     pkt.stream_index = audio_st->index;
     pkt.data         = (uint8_t *)audioFrameBytes;
-    c->frame_number++;
 
     avpacket_queue_put(&queue, &pkt);
 }
@@ -410,12 +355,10 @@ void write_video_packet(IDeckLinkVideoInputFrame *videoFrame,
                         int64_t pts, int64_t duration)
 {
     AVPacket pkt;
-    AVCodecContext *c;
     void *frameBytes;
     time_t cur_time;
 
     av_init_packet(&pkt);
-    c = video_st->codec;
     if (g_verbose && frameCount % 25 == 0) {
         unsigned long long qsize = avpacket_queue_size(&queue);
         fprintf(stderr,
@@ -472,7 +415,6 @@ void write_video_packet(IDeckLinkVideoInputFrame *videoFrame,
     pkt.size         = videoFrame->GetRowBytes() *
                        videoFrame->GetHeight();
     //fprintf(stderr,"Video Frame size %d ts %d\n", pkt.size, pkt.pts);
-    c->frame_number++;
     avpacket_queue_put(&queue, &pkt);
 }
 
