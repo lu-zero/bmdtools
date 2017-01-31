@@ -130,7 +130,7 @@ static int packet_queue_put(PacketQueue *q, AVPacket *pkt)
     q->nb_packets++;
     if (q->nb_packets > 5000)
         fprintf(stderr,
-                "%"PRId64" storing %p, %s - is the input faster than realtime?\n",
+                "%" PRId64 " storing %p, %s - is the input faster than realtime?\n",
                 q->nb_packets,
                 q,
                 q == &videoqueue ? "videoqueue" : "audioqueue");
@@ -157,7 +157,7 @@ static int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block)
                 q->last_pkt = NULL;
             q->nb_packets--;
             if (q->nb_packets > 5000)
-                fprintf(stderr, "pulling %"PRId64" from %p %s\n",
+                fprintf(stderr, "pulling %" PRId64 " from %p %s\n",
                         q->nb_packets,
                         q,
                         q == &videoqueue ? "videoqueue" : "audioqueue");
@@ -422,7 +422,7 @@ int main(int argc, char *argv[])
 
     avformat_close_input(&ic);
 
-    fprintf(stderr, "video %"PRId64" audio %"PRId64"\n",
+    fprintf(stderr, "video %" PRId64 " audio %" PRId64 "\n",
             videoqueue.nb_packets,
             audioqueue.nb_packets);
 
