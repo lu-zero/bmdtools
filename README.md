@@ -2,7 +2,7 @@
 
 Initially developed as an example integration between libavformat and the
 bmd sdk, it ended up being a set of useful tools to use the BlackMagic Devices
-decklink cards on Linux and OSX.
+decklink cards on Linux and macOS.
 
 Thanks to TodoStreaming sponsoring its early development.
 
@@ -20,7 +20,7 @@ You can build it out of the Sample tree by issuing
 make SDK_PATH=/path/to/the/bmd/include
 ```
 
-### OSX Support
+### macOS Support
 
 Should work out of box.
 
