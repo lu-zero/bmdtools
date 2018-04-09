@@ -662,16 +662,18 @@ void Player::StartRunning(int videomode)
             fprintf(stderr, "Failed to enable audio output\n");
             return;
         }
-    }
 
-    for (unsigned i = 0; i < 10; i++)
-        ScheduleNextFrame(true);
+        for (unsigned i = 0; i < 10; i++)
+            ScheduleNextFrame(true);
 
-    // Begin audio preroll.  This will begin calling our audio callback, which will start the DeckLink output stream.
-//    m_audioBufferOffset = 0;
-    if (m_deckLinkOutput->BeginAudioPreroll() != S_OK) {
-        fprintf(stderr, "Failed to begin audio preroll\n");
-        return;
+        // Begin audio preroll.  This will begin calling our audio callback, which will start the DeckLink output stream.
+    //    m_audioBufferOffset = 0;
+        if (m_deckLinkOutput->BeginAudioPreroll() != S_OK) {
+            fprintf(stderr, "Failed to begin audio preroll\n");
+            return;
+        }
+    } else {
+        m_deckLinkOutput->StartScheduledPlayback(0, 100, 1.0);
     }
 
     m_running = true;
