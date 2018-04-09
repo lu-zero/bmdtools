@@ -216,9 +216,11 @@ void *fill_queues(void *unused)
             if (pkt.pts != AV_NOPTS_VALUE) {
                 if (first_pts == AV_NOPTS_VALUE) {
                     first_pts       = first_video_pts = pkt.pts;
-                    first_audio_pts =
-                        av_rescale_q(pkt.pts, video.st->time_base,
-                                     audio.st->time_base);
+                    if (audio.st) {
+                        first_audio_pts =
+                            av_rescale_q(pkt.pts, video.st->time_base,
+                                         audio.st->time_base);
+                    }
                 }
                 pkt.pts -= first_video_pts;
             }
@@ -424,9 +426,8 @@ int main(int argc, char *argv[])
     }
 
     if (!audio.st) {
-        av_log(NULL, AV_LOG_ERROR,
-               "No audio stream found - bmdplay will close now.\n");
-        return 1;
+        av_log(NULL, AV_LOG_INFO,
+               "No audio stream found - bmdplay will just play video\n");
     }
 
     if (!video.st) {
@@ -790,12 +791,14 @@ HRESULT Player::ScheduledPlaybackHasStopped()
 
 HRESULT Player::RenderAudioSamples(bool preroll)
 {
-    // Provide further audio samples to the DeckLink API until our preferred buffer waterlevel is reached
-    WriteNextAudioSamples();
+    if (audio.st) {
+        // Provide further audio samples to the DeckLink API until our preferred buffer waterlevel is reached
+        WriteNextAudioSamples();
 
-    if (preroll) {
-        // Start audio and video output
-        m_deckLinkOutput->StartScheduledPlayback(0, 100, 1.0);
+        if (preroll) {
+            // Start audio and video output
+            m_deckLinkOutput->StartScheduledPlayback(0, 100, 1.0);
+        }
     }
 
     return S_OK;
