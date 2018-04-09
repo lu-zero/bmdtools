@@ -486,25 +486,27 @@ bool Player::Init(int videomode, int connection, int camera)
     m_audioSampleDepth =
         av_get_exact_bits_per_sample(audio.codec->codec_id);
 
-    switch (audio.codec->channels) {
-        case  2:
-        case  8:
-        case 16:
-            break;
-        default:
-            fprintf(stderr,
-                    "%d channels not supported, please use 2, 8 or 16\n",
-                    audio.codec->channels);
-            goto bail;
-    }
+    if (audio.st) {
+        switch (audio.codec->channels) {
+            case  2:
+            case  8:
+            case 16:
+                break;
+            default:
+                fprintf(stderr,
+                        "%d channels not supported, please use 2, 8 or 16\n",
+                        audio.codec->channels);
+                goto bail;
+        }
 
-    switch (m_audioSampleDepth) {
-        case 16:
-        case 32:
-            break;
-        default:
-            fprintf(stderr, "%lubit audio not supported use 16bit or 32bit\n",
-                    m_audioSampleDepth);
+        switch (m_audioSampleDepth) {
+            case 16:
+            case 32:
+                break;
+            default:
+                fprintf(stderr, "%lubit audio not supported use 16bit or 32bit\n",
+                        m_audioSampleDepth);
+        }
     }
 
     do
@@ -651,13 +653,15 @@ void Player::StartRunning(int videomode)
     }
 
     // Set the audio output mode
-    if (m_deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
-                                            m_audioSampleDepth,
-                                            audio.codec->channels,
-                                            bmdAudioOutputStreamTimestamped) !=
-        S_OK) {
-        fprintf(stderr, "Failed to enable audio output\n");
-        return;
+    if (audio.st) {
+        if (m_deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
+                                                m_audioSampleDepth,
+                                                audio.codec->channels,
+                                                bmdAudioOutputStreamTimestamped) !=
+            S_OK) {
+            fprintf(stderr, "Failed to enable audio output\n");
+            return;
+        }
     }
 
     for (unsigned i = 0; i < 10; i++)
