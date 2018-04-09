@@ -216,9 +216,11 @@ void *fill_queues(void *unused)
             if (pkt.pts != AV_NOPTS_VALUE) {
                 if (first_pts == AV_NOPTS_VALUE) {
                     first_pts       = first_video_pts = pkt.pts;
-                    first_audio_pts =
-                        av_rescale_q(pkt.pts, video.st->time_base,
-                                     audio.st->time_base);
+                    if (audio.st) {
+                        first_audio_pts =
+                            av_rescale_q(pkt.pts, video.st->time_base,
+                                         audio.st->time_base);
+                    }
                 }
                 pkt.pts -= first_video_pts;
             }
@@ -424,9 +426,8 @@ int main(int argc, char *argv[])
     }
 
     if (!audio.st) {
-        av_log(NULL, AV_LOG_ERROR,
-               "No audio stream found - bmdplay will close now.\n");
-        return 1;
+        av_log(NULL, AV_LOG_INFO,
+               "No audio stream found - bmdplay will just play video\n");
     }
 
     if (!video.st) {
@@ -482,28 +483,30 @@ bool Player::Init(int videomode, int connection, int camera)
         goto bail;
     }
 
-    m_audioSampleDepth =
-        av_get_exact_bits_per_sample(audio.codec->codec_id);
+    if (audio.st) {
+        m_audioSampleDepth =
+            av_get_exact_bits_per_sample(audio.codec->codec_id);
 
-    switch (audio.codec->channels) {
-        case  2:
-        case  8:
-        case 16:
-            break;
-        default:
-            fprintf(stderr,
-                    "%d channels not supported, please use 2, 8 or 16\n",
-                    audio.codec->channels);
-            goto bail;
-    }
+        switch (audio.codec->channels) {
+            case  2:
+            case  8:
+            case 16:
+                break;
+            default:
+                fprintf(stderr,
+                        "%d channels not supported, please use 2, 8 or 16\n",
+                        audio.codec->channels);
+                goto bail;
+        }
 
-    switch (m_audioSampleDepth) {
-        case 16:
-        case 32:
-            break;
-        default:
-            fprintf(stderr, "%lubit audio not supported use 16bit or 32bit\n",
-                    m_audioSampleDepth);
+        switch (m_audioSampleDepth) {
+            case 16:
+            case 32:
+                break;
+            default:
+                fprintf(stderr, "%lubit audio not supported use 16bit or 32bit\n",
+                        m_audioSampleDepth);
+        }
     }
 
     do
@@ -650,23 +653,30 @@ void Player::StartRunning(int videomode)
     }
 
     // Set the audio output mode
-    if (m_deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
-                                            m_audioSampleDepth,
-                                            audio.codec->channels,
-                                            bmdAudioOutputStreamTimestamped) !=
-        S_OK) {
-        fprintf(stderr, "Failed to enable audio output\n");
-        return;
-    }
+    if (audio.st) {
+        if (m_deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
+                                                m_audioSampleDepth,
+                                                audio.codec->channels,
+                                                bmdAudioOutputStreamTimestamped) !=
+            S_OK) {
+            fprintf(stderr, "Failed to enable audio output\n");
+            return;
+        }
 
-    for (unsigned i = 0; i < 10; i++)
-        ScheduleNextFrame(true);
+        for (unsigned i = 0; i < 10; i++)
+            ScheduleNextFrame(true);
 
-    // Begin audio preroll.  This will begin calling our audio callback, which will start the DeckLink output stream.
-//    m_audioBufferOffset = 0;
-    if (m_deckLinkOutput->BeginAudioPreroll() != S_OK) {
-        fprintf(stderr, "Failed to begin audio preroll\n");
-        return;
+        // Begin audio preroll.  This will begin calling our audio callback, which will start the DeckLink output stream.
+    //    m_audioBufferOffset = 0;
+        if (m_deckLinkOutput->BeginAudioPreroll() != S_OK) {
+            fprintf(stderr, "Failed to begin audio preroll\n");
+            return;
+        }
+    } else {
+        for (unsigned i = 0; i < 10; i++)
+            ScheduleNextFrame(true);
+
+        m_deckLinkOutput->StartScheduledPlayback(0, 100, 1.0);
     }
 
     m_running = true;
@@ -790,12 +800,14 @@ HRESULT Player::ScheduledPlaybackHasStopped()
 
 HRESULT Player::RenderAudioSamples(bool preroll)
 {
-    // Provide further audio samples to the DeckLink API until our preferred buffer waterlevel is reached
-    WriteNextAudioSamples();
+    if (audio.st) {
+        // Provide further audio samples to the DeckLink API until our preferred buffer waterlevel is reached
+        WriteNextAudioSamples();
 
-    if (preroll) {
-        // Start audio and video output
-        m_deckLinkOutput->StartScheduledPlayback(0, 100, 1.0);
+        if (preroll) {
+            // Start audio and video output
+            m_deckLinkOutput->StartScheduledPlayback(0, 100, 1.0);
+        }
     }
 
     return S_OK;
