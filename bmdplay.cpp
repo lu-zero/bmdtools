@@ -673,6 +673,9 @@ void Player::StartRunning(int videomode)
             return;
         }
     } else {
+        for (unsigned i = 0; i < 10; i++)
+            ScheduleNextFrame(true);
+
         m_deckLinkOutput->StartScheduledPlayback(0, 100, 1.0);
     }
 
