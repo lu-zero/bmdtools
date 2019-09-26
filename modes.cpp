@@ -35,7 +35,9 @@ void print_display_mode(IDeckLinkDisplayMode *displayMode, int index)
 
     BMDTimeValue frameRateDuration;
     BMDTimeScale frameRateScale;
-    BMDDisplayModeSupport displayModeSupport;
+    // This seems to be deprecated in newer Decklink SDK 11
+    // Since it is not needed in file it is commented out for now
+    // BMDDisplayModeSupport displayModeSupport;
     BMDProbeString str;
 
     if (displayMode->GetName(&str) != S_OK)
