@@ -36,8 +36,6 @@ void print_display_mode(IDeckLinkDisplayMode *displayMode, int index)
     BMDTimeValue frameRateDuration;
     BMDTimeScale frameRateScale;
     // BMDDisplayModeSupport displayModeSupport;
-
-
     BMDProbeString str;
 
     if (displayMode->GetName(&str) != S_OK)
