@@ -571,8 +571,9 @@ static void *push_packet(void *ctx)
     int ret;
 
     while (avpacket_queue_get(&queue, &pkt, 1)) {
-        av_interleaved_write_frame(s, &pkt);
-        if ((g_maxFrames > 0 && frameCount >= g_maxFrames) ||
+        ret = av_interleaved_write_frame(s, &pkt);
+        if (ret || 
+	    (g_maxFrames > 0 && frameCount >= g_maxFrames) ||
             avpacket_queue_size(&queue) > g_memoryLimit) {
             pthread_cond_signal(&sleepCond);
         }
